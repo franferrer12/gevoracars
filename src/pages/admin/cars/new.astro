@@ -484,7 +484,7 @@ if (Astro.request.method === 'POST') {
           index === currentIndex ? 'bg-gold text-dark-base font-semibold' : 'text-pearl hover:bg-dark-alt'
         }`;
         div.dataset.index = index;
-        div.addEventListener('click', () => onSelect(item));
+        div.addEventListener('mousedown', () => onSelect(item));
         div.addEventListener('mouseenter', () => {
           if (container === marcaSuggestions) {
             currentMarcaIndex = index;
