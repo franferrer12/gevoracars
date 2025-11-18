@@ -1,0 +1,486 @@
+---
+import '../../../styles/global.css';
+import db from '../../../lib/db.js';
+
+// Verificar sesión
+const sessionCookie = Astro.cookies.get('session');
+if (!sessionCookie) {
+  return Astro.redirect('/admin/login');
+}
+
+let session;
+try {
+  session = JSON.parse(sessionCookie.value);
+} catch (e) {
+  return Astro.redirect('/admin/login');
+}
+
+// Manejar eliminación
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const action = formData.get('action');
+
+  if (action === 'delete') {
+    const id = formData.get('id');
+    db.prepare('DELETE FROM cars WHERE id = ?').run(id);
+    return Astro.redirect('/admin/cars');
+  }
+}
+
+// Obtener filtros
+const url = new URL(Astro.request.url);
+const estado = url.searchParams.get('estado') || 'todos';
+const origen = url.searchParams.get('origen') || 'todos';
+const marca = url.searchParams.get('marca') || '';
+const modelo = url.searchParams.get('modelo') || '';
+
+// Construir query
+let query = 'SELECT * FROM cars WHERE 1=1';
+const params = [];
+
+if (estado !== 'todos') {
+  query += ' AND estado = ?';
+  params.push(estado);
+}
+
+if (origen !== 'todos') {
+  query += ' AND origen = ?';
+  params.push(origen);
+}
+
+if (marca) {
+  query += ' AND marca LIKE ?';
+  params.push(`%${marca}%`);
+}
+
+if (modelo) {
+  query += ' AND modelo LIKE ?';
+  params.push(`%${modelo}%`);
+}
+
+query += ' ORDER BY created_at DESC';
+
+const cars = db.prepare(query).all(...params);
+---
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestionar Coches - Gevora Cars Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Line Awesome Icons -->
+  <link rel="stylesheet" href="https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css">
+</head>
+
+<body class="bg-dark-base min-h-screen">
+  <!-- Header -->
+  <header class="bg-dark-alt border-b border-gray-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="flex justify-between items-center">
+        <div class="flex items-center gap-4">
+          <a href="/admin/dashboard" class="text-2xl font-black tracking-tighter">
+            <span class="text-pearl">GEVORA</span>
+            <span class="text-gold">CARS</span>
+          </a>
+          <span class="text-gray-light">/ Gestionar Coches</span>
+        </div>
+
+        <div class="flex items-center gap-4">
+          <a href="/admin/dashboard" class="px-4 py-2 bg-dark-card text-gray-light hover:text-pearl border border-gray-800 hover:border-gold rounded-lg transition-all duration-300">
+            ← Dashboard
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header con botón agregar -->
+    <div class="flex justify-between items-center mb-8">
+      <h1 class="text-3xl font-bold text-pearl">Gestionar Coches</h1>
+      <a href="/admin/cars/new" class="px-6 py-3 bg-gold text-dark-base font-bold rounded-lg hover:bg-gold-light transition-all duration-300 hover-lift">
+        + Agregar Nuevo Coche
+      </a>
+    </div>
+
+    <!-- Filtros -->
+    <div class="bg-dark-alt p-6 rounded-xl border border-gray-800 mb-6">
+      <form method="GET" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <!-- Marca -->
+        <div class="relative">
+          <label class="block text-sm font-semibold text-pearl mb-2">
+            <i class="las la-car-side text-gold"></i> Marca
+          </label>
+          <input
+            type="text"
+            id="marca-filter"
+            name="marca"
+            autocomplete="off"
+            placeholder="Buscar marca..."
+            class="w-full px-4 py-2 bg-dark-base border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300"
+          />
+          <div id="marca-filter-suggestions" class="absolute z-50 w-full mt-1 bg-dark-card border border-gray-800 rounded-lg hidden max-h-60 overflow-y-auto shadow-xl">
+          </div>
+        </div>
+
+        <!-- Modelo -->
+        <div class="relative">
+          <label class="block text-sm font-semibold text-pearl mb-2">
+            <i class="las la-car text-gold"></i> Modelo
+          </label>
+          <input
+            type="text"
+            id="modelo-filter"
+            name="modelo"
+            autocomplete="off"
+            disabled
+            placeholder="Selecciona marca primero..."
+            class="w-full px-4 py-2 bg-dark-base border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300 disabled:opacity-50"
+          />
+          <div id="modelo-filter-suggestions" class="absolute z-50 w-full mt-1 bg-dark-card border border-gray-800 rounded-lg hidden max-h-60 overflow-y-auto shadow-xl">
+          </div>
+        </div>
+
+        <!-- Estado -->
+        <div>
+          <label class="block text-sm font-semibold text-pearl mb-2">Estado</label>
+          <select
+            name="estado"
+            class="w-full px-4 py-2 bg-dark-base border border-gray-800 rounded-lg text-pearl focus:outline-none focus:border-gold transition-colors duration-300"
+          >
+            <option value="todos" selected={estado === 'todos'}>Todos</option>
+            <option value="disponible" selected={estado === 'disponible'}>Disponible</option>
+            <option value="vendido" selected={estado === 'vendido'}>Vendido</option>
+            <option value="reservado" selected={estado === 'reservado'}>Reservado</option>
+          </select>
+        </div>
+
+        <!-- Origen -->
+        <div>
+          <label class="block text-sm font-semibold text-pearl mb-2">Origen</label>
+          <select
+            name="origen"
+            class="w-full px-4 py-2 bg-dark-base border border-gray-800 rounded-lg text-pearl focus:outline-none focus:border-gold transition-colors duration-300"
+          >
+            <option value="todos" selected={origen === 'todos'}>Todos</option>
+            <option value="nacional" selected={origen === 'nacional'}>Nacional</option>
+            <option value="alemania" selected={origen === 'alemania'}>Alemania</option>
+            <option value="francia" selected={origen === 'francia'}>Francia</option>
+            <option value="italia" selected={origen === 'italia'}>Italia</option>
+          </select>
+        </div>
+
+        <!-- Botón filtrar -->
+        <div class="flex items-end">
+          <button type="submit" class="w-full px-6 py-2 bg-gold text-dark-base font-bold rounded-lg hover:bg-gold-light transition-all duration-300 flex items-center justify-center gap-2">
+            <i class="las la-filter"></i>
+            Filtrar
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Tabla de coches -->
+    <div class="bg-dark-alt rounded-xl border border-gray-800 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-dark-card border-b border-gray-800">
+            <tr>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Marca/Modelo</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Año</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Precio</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">KM</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Estado</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Origen</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Destacado</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cars.length === 0 ? (
+              <tr>
+                <td colspan="8" class="px-6 py-12 text-center text-gray-light">
+                  <div class="text-5xl mb-4">🚗</div>
+                  <p class="text-xl mb-4">No hay coches registrados con estos filtros</p>
+                  <a href="/admin/cars/new" class="inline-block px-6 py-3 bg-gold text-dark-base font-bold rounded-lg hover:bg-gold-light transition-all duration-300">
+                    + Agregar Primer Coche
+                  </a>
+                </td>
+              </tr>
+            ) : (
+              cars.map(car => (
+                <tr class="border-b border-gray-800 hover:bg-dark-card transition-colors duration-200">
+                  <td class="px-6 py-4">
+                    <div class="font-semibold text-pearl">{car.marca} {car.modelo}</div>
+                    <div class="text-sm text-gray-light">{car.combustible} • {car.transmision}</div>
+                  </td>
+                  <td class="px-6 py-4 text-gray-light">{car.year}</td>
+                  <td class="px-6 py-4 text-gold font-semibold">{car.precio.toLocaleString('es-ES')}€</td>
+                  <td class="px-6 py-4 text-gray-light">{car.kilometros?.toLocaleString('es-ES') || '-'} km</td>
+                  <td class="px-6 py-4">
+                    <span class={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      car.estado === 'disponible' ? 'bg-green-900/30 text-green-400' :
+                      car.estado === 'vendido' ? 'bg-gray-700 text-gray-400' :
+                      'bg-yellow-900/30 text-yellow-400'
+                    }`}>
+                      {car.estado}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-gray-light capitalize">{car.origen}</td>
+                  <td class="px-6 py-4">
+                    {car.destacado ? (
+                      <span class="text-gold">★</span>
+                    ) : (
+                      <span class="text-gray-700">☆</span>
+                    )}
+                  </td>
+                  <td class="px-6 py-4">
+                    <div class="flex gap-2">
+                      <a href={`/admin/cars/edit/${car.id}`} class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors duration-200">
+                        Editar
+                      </a>
+                      <form method="POST" class="inline" onsubmit="return confirm('¿Estás seguro de eliminar este coche?')">
+                        <input type="hidden" name="action" value="delete" />
+                        <input type="hidden" name="id" value={car.id} />
+                        <button type="submit" class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition-colors duration-200">
+                          Eliminar
+                        </button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="mt-6 text-center text-gray-light text-sm">
+      Mostrando {cars.length} {cars.length === 1 ? 'coche' : 'coches'}
+    </div>
+  </main>
+
+  <!-- JavaScript for autocomplete -->
+  <script>
+    const carsDatabase = {
+      "marcas": {
+        "Audi": ["A1", "A3", "A4", "A5", "A6", "A7", "A8", "Q2", "Q3", "Q5", "Q7", "Q8", "TT", "R8", "RS3", "RS4", "RS5", "RS6", "RS7", "e-tron"],
+        "BMW": ["Serie 1", "Serie 2", "Serie 3", "Serie 4", "Serie 5", "Serie 6", "Serie 7", "Serie 8", "X1", "X2", "X3", "X4", "X5", "X6", "X7", "Z4", "i3", "i4", "iX", "M2", "M3", "M4", "M5", "M8"],
+        "Mercedes-Benz": ["Clase A", "Clase B", "Clase C", "Clase E", "Clase S", "CLA", "CLS", "GLA", "GLB", "GLC", "GLE", "GLS", "EQA", "EQB", "EQC", "EQE", "EQS", "AMG GT", "Clase G"],
+        "Volkswagen": ["Polo", "Golf", "Golf GTI", "Golf R", "Tiguan", "Touareg", "T-Roc", "T-Cross", "Passat", "Arteon", "ID.3", "ID.4", "ID.5", "Taigo"],
+        "Seat": ["Ibiza", "Leon", "Arona", "Ateca", "Tarraco", "Leon Cupra"],
+        "Cupra": ["Formentor", "Leon", "Ateca", "Born", "Tavascan"],
+        "Renault": ["Clio", "Megane", "Captur", "Kadjar", "Arkana", "Austral", "Scenic", "Zoe", "Megane E-Tech"],
+        "Peugeot": ["208", "308", "508", "2008", "3008", "5008", "e-208", "e-2008"],
+        "Citroën": ["C3", "C4", "C5 Aircross", "Berlingo", "e-C4"],
+        "Opel": ["Corsa", "Astra", "Insignia", "Crossland", "Grandland", "Mokka", "Corsa-e"],
+        "Ford": ["Fiesta", "Focus", "Mondeo", "Kuga", "Puma", "Mustang", "Mustang Mach-E", "Ranger"],
+        "Toyota": ["Yaris", "Corolla", "Camry", "C-HR", "RAV4", "Highlander", "Land Cruiser", "Prius", "bZ4X"],
+        "Honda": ["Civic", "Accord", "CR-V", "HR-V", "Jazz", "e"],
+        "Mazda": ["Mazda2", "Mazda3", "Mazda6", "CX-3", "CX-30", "CX-5", "CX-60", "MX-5", "MX-30"],
+        "Nissan": ["Micra", "Juke", "Qashqai", "X-Trail", "Leaf", "Ariya", "GT-R"],
+        "Hyundai": ["i10", "i20", "i30", "Tucson", "Santa Fe", "Kona", "Ioniq 5", "Ioniq 6"],
+        "Kia": ["Picanto", "Rio", "Ceed", "Sportage", "Sorento", "Niro", "EV6", "Stinger"],
+        "Volvo": ["XC40", "XC60", "XC90", "S60", "S90", "V60", "V90", "C40 Recharge"],
+        "Porsche": ["911", "718 Boxster", "718 Cayman", "Taycan", "Panamera", "Macan", "Cayenne"],
+        "Tesla": ["Model 3", "Model Y", "Model S", "Model X"],
+        "Ferrari": ["Roma", "Portofino", "F8 Tributo", "SF90 Stradale", "296 GTB", "812 Superfast", "Purosangue"],
+        "Lamborghini": ["Huracán", "Urus", "Aventador", "Revuelto"],
+        "Jaguar": ["XE", "XF", "XJ", "F-Type", "E-Pace", "F-Pace", "I-Pace"],
+        "Land Rover": ["Defender", "Discovery", "Discovery Sport", "Range Rover", "Range Rover Sport", "Range Rover Evoque", "Range Rover Velar"],
+        "Mini": ["Cooper", "Countryman", "Clubman", "Cooper SE"],
+        "Fiat": ["500", "500X", "Panda", "Tipo", "500e"],
+        "Alfa Romeo": ["Giulia", "Stelvio", "Tonale"],
+        "Jeep": ["Renegade", "Compass", "Cherokee", "Grand Cherokee", "Wrangler", "Gladiator"],
+        "Dacia": ["Sandero", "Duster", "Jogger", "Spring"],
+        "Skoda": ["Fabia", "Octavia", "Superb", "Kamiq", "Karoq", "Kodiaq", "Enyaq"]
+      }
+    };
+
+    const marcaInput = document.getElementById('marca-filter');
+    const modeloInput = document.getElementById('modelo-filter');
+    const marcaSuggestions = document.getElementById('marca-filter-suggestions');
+    const modeloSuggestions = document.getElementById('modelo-filter-suggestions');
+
+    let selectedMarca = '';
+    let currentMarcaIndex = -1;
+    let currentModeloIndex = -1;
+    let marcaMatches = [];
+    let modeloMatches = [];
+
+    function highlightMatch(text, query) {
+      if (!query) return text;
+      const regex = new RegExp(`(${query})`, 'gi');
+      return text.replace(regex, '<span class="text-gold font-semibold">$1</span>');
+    }
+
+    function sortByRelevance(items, query) {
+      return items.sort((a, b) => {
+        const aLower = a.toLowerCase();
+        const bLower = b.toLowerCase();
+        const queryLower = query.toLowerCase();
+        if (aLower === queryLower) return -1;
+        if (bLower === queryLower) return 1;
+        const aStarts = aLower.startsWith(queryLower);
+        const bStarts = bLower.startsWith(queryLower);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+        return a.localeCompare(b);
+      });
+    }
+
+    function renderSuggestions(container, items, query, currentIndex, onSelect) {
+      container.innerHTML = '';
+      if (items.length === 0) {
+        const noResults = document.createElement('div');
+        noResults.className = 'px-4 py-3 text-gray-light text-center';
+        noResults.innerHTML = '<i class="las la-exclamation-circle"></i> No se encontraron resultados';
+        container.appendChild(noResults);
+        container.classList.remove('hidden');
+        return;
+      }
+      const header = document.createElement('div');
+      header.className = 'px-4 py-2 bg-dark-base border-b border-gray-800 text-gray-light text-xs font-semibold';
+      header.innerHTML = `<i class="las la-list"></i> ${items.length} resultado${items.length !== 1 ? 's' : ''}`;
+      container.appendChild(header);
+      items.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.innerHTML = highlightMatch(item, query);
+        div.className = `px-4 py-3 cursor-pointer border-b border-gray-800 last:border-0 transition-all duration-200 ${
+          index === currentIndex ? 'bg-gold text-dark-base font-semibold' : 'text-pearl hover:bg-dark-alt'
+        }`;
+        div.dataset.index = index;
+        div.addEventListener('click', () => onSelect(item));
+        div.addEventListener('mouseenter', () => {
+          if (container === marcaSuggestions) {
+            currentMarcaIndex = index;
+          } else {
+            currentModeloIndex = index;
+          }
+          renderSuggestions(container, items, query, index, onSelect);
+        });
+        container.appendChild(div);
+      });
+      container.classList.remove('hidden');
+    }
+
+    function selectMarca(marca) {
+      marcaInput.value = marca;
+      selectedMarca = marca;
+      marcaSuggestions.classList.add('hidden');
+      currentMarcaIndex = -1;
+      modeloInput.value = '';
+      modeloInput.disabled = false;
+      modeloInput.placeholder = 'Busca o haz click para ver todos...';
+      modeloInput.focus();
+    }
+
+    function selectModelo(modelo) {
+      modeloInput.value = modelo;
+      modeloSuggestions.classList.add('hidden');
+      currentModeloIndex = -1;
+    }
+
+    marcaInput.addEventListener('input', (e) => {
+      const value = e.target.value;
+      currentMarcaIndex = -1;
+      if (value.length < 1) {
+        marcaSuggestions.classList.add('hidden');
+        selectedMarca = '';
+        modeloInput.value = '';
+        modeloInput.disabled = true;
+        modeloInput.placeholder = 'Primero selecciona una marca...';
+        return;
+      }
+      marcaMatches = Object.keys(carsDatabase.marcas).filter(marca =>
+        marca.toLowerCase().includes(value.toLowerCase())
+      );
+      marcaMatches = sortByRelevance(marcaMatches, value);
+      renderSuggestions(marcaSuggestions, marcaMatches, value, currentMarcaIndex, selectMarca);
+    });
+
+    marcaInput.addEventListener('keydown', (e) => {
+      if (marcaMatches.length === 0) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        currentMarcaIndex = Math.min(currentMarcaIndex + 1, marcaMatches.length - 1);
+        renderSuggestions(marcaSuggestions, marcaMatches, marcaInput.value, currentMarcaIndex, selectMarca);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        currentMarcaIndex = Math.max(currentMarcaIndex - 1, -1);
+        renderSuggestions(marcaSuggestions, marcaMatches, marcaInput.value, currentMarcaIndex, selectMarca);
+      } else if (e.key === 'Enter' && currentMarcaIndex >= 0) {
+        e.preventDefault();
+        selectMarca(marcaMatches[currentMarcaIndex]);
+      } else if (e.key === 'Escape') {
+        marcaSuggestions.classList.add('hidden');
+        currentMarcaIndex = -1;
+      }
+    });
+
+    modeloInput.addEventListener('input', (e) => {
+      const value = e.target.value;
+      currentModeloIndex = -1;
+      if (!selectedMarca) {
+        modeloSuggestions.classList.add('hidden');
+        return;
+      }
+      const modelos = carsDatabase.marcas[selectedMarca] || [];
+      if (value.length < 1) {
+        modeloMatches = modelos;
+      } else {
+        modeloMatches = modelos.filter(modelo =>
+          modelo.toLowerCase().includes(value.toLowerCase())
+        );
+        modeloMatches = sortByRelevance(modeloMatches, value);
+      }
+      renderSuggestions(modeloSuggestions, modeloMatches, value, currentModeloIndex, selectModelo);
+    });
+
+    modeloInput.addEventListener('focus', (e) => {
+      if (selectedMarca && modeloInput.value.length === 0) {
+        modeloMatches = carsDatabase.marcas[selectedMarca] || [];
+        renderSuggestions(modeloSuggestions, modeloMatches, '', currentModeloIndex, selectModelo);
+      }
+    });
+
+    modeloInput.addEventListener('keydown', (e) => {
+      if (modeloMatches.length === 0) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        currentModeloIndex = Math.min(currentModeloIndex + 1, modeloMatches.length - 1);
+        renderSuggestions(modeloSuggestions, modeloMatches, modeloInput.value, currentModeloIndex, selectModelo);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        currentModeloIndex = Math.max(currentModeloIndex - 1, -1);
+        renderSuggestions(modeloSuggestions, modeloMatches, modeloInput.value, currentModeloIndex, selectModelo);
+      } else if (e.key === 'Enter' && currentModeloIndex >= 0) {
+        e.preventDefault();
+        selectModelo(modeloMatches[currentModeloIndex]);
+      } else if (e.key === 'Escape') {
+        modeloSuggestions.classList.add('hidden');
+        currentModeloIndex = -1;
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!marcaInput.contains(e.target) && !marcaSuggestions.contains(e.target)) {
+        marcaSuggestions.classList.add('hidden');
+        currentMarcaIndex = -1;
+      }
+      if (!modeloInput.contains(e.target) && !modeloSuggestions.contains(e.target)) {
+        modeloSuggestions.classList.add('hidden');
+        currentModeloIndex = -1;
+      }
+    });
+  </script>
+</body>
+</html>

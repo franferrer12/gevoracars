@@ -1,0 +1,126 @@
+---
+import '../../styles/global.css';
+
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const username = formData.get('username')?.toString();
+  const password = formData.get('password')?.toString();
+
+  if (username && password) {
+    const { validateUser, createSession } = await import('../../lib/auth.js');
+    const user = validateUser(username, password);
+
+    if (user) {
+      // Crear sesión
+      const session = createSession(user);
+
+      // Guardar en cookie (simplificado)
+      Astro.cookies.set('session', JSON.stringify(session), {
+        path: '/',
+        httpOnly: true,
+        secure: false, // true en producción
+        maxAge: 60 * 60 * 24 * 7 // 7 días
+      });
+
+      return Astro.redirect('/admin/dashboard');
+    } else {
+      error = 'Usuario o contraseña incorrectos';
+    }
+  } else {
+    error = 'Por favor completa todos los campos';
+  }
+}
+---
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login - Gevora Cars Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+
+<body class="min-h-screen flex items-center justify-center bg-dark-base">
+  <div class="w-full max-w-md px-4">
+    <!-- Logo -->
+    <div class="text-center mb-8">
+      <h1 class="text-5xl font-black tracking-tighter mb-2">
+        <span class="text-pearl">GEVORA</span>
+        <span class="text-gold">CARS</span>
+      </h1>
+      <p class="text-gray-light">Panel de Administración</p>
+    </div>
+
+    <!-- Login Form -->
+    <div class="bg-dark-alt rounded-2xl p-8 border border-gray-800">
+      <h2 class="text-2xl font-bold text-pearl mb-6">Iniciar Sesión</h2>
+
+      {error && (
+        <div class="mb-6 p-4 bg-red-900/20 border border-red-500/50 rounded-lg">
+          <p class="text-red-400 text-sm">{error}</p>
+        </div>
+      )}
+
+      <form method="POST" class="space-y-6">
+        <!-- Username -->
+        <div>
+          <label for="username" class="block text-pearl font-semibold mb-2">
+            Usuario
+          </label>
+          <input
+            type="text"
+            id="username"
+            name="username"
+            required
+            class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300"
+            placeholder="admin"
+          />
+        </div>
+
+        <!-- Password -->
+        <div>
+          <label for="password" class="block text-pearl font-semibold mb-2">
+            Contraseña
+          </label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            required
+            class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300"
+            placeholder="••••••••"
+          />
+        </div>
+
+        <!-- Submit Button -->
+        <button
+          type="submit"
+          class="w-full py-4 bg-gold text-dark-base font-bold text-lg rounded-lg hover:bg-gold-light transition-all duration-300 hover-lift"
+        >
+          Acceder
+        </button>
+      </form>
+
+      <!-- Info -->
+      <div class="mt-6 p-4 bg-dark-base rounded-lg border border-gray-800">
+        <p class="text-sm text-gray-light text-center">
+          <strong class="text-pearl">Usuario por defecto:</strong><br/>
+          admin / admin123
+        </p>
+      </div>
+    </div>
+
+    <!-- Back to home -->
+    <div class="text-center mt-6">
+      <a href="/" class="text-gold hover:text-gold-light transition-colors duration-300">
+        ← Volver al inicio
+      </a>
+    </div>
+  </div>
+</body>
+</html>

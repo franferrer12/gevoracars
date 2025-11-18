@@ -1,0 +1,613 @@
+---
+import '../../../styles/global.css';
+import db from '../../../lib/db.js';
+
+// Verificar sesión
+const sessionCookie = Astro.cookies.get('session');
+if (!sessionCookie) {
+  return Astro.redirect('/admin/login');
+}
+
+let session;
+try {
+  session = JSON.parse(sessionCookie.value);
+} catch (e) {
+  return Astro.redirect('/admin/login');
+}
+
+let errors = {};
+let success = false;
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+
+  const marca = formData.get('marca')?.toString();
+  const modelo = formData.get('modelo')?.toString();
+  const year = formData.get('year')?.toString();
+  const precio = formData.get('precio')?.toString();
+  const kilometros = formData.get('kilometros')?.toString();
+  const combustible = formData.get('combustible')?.toString();
+  const transmision = formData.get('transmision')?.toString();
+  const color = formData.get('color')?.toString();
+  const descripcion = formData.get('descripcion')?.toString();
+  const estado = formData.get('estado')?.toString();
+  const origen = formData.get('origen')?.toString();
+  const destacado = formData.get('destacado') ? 1 : 0;
+  const imagen_principal = formData.get('imagen_principal')?.toString() || null;
+
+  // Validaciones
+  if (!marca) errors.marca = 'La marca es requerida';
+  if (!modelo) errors.modelo = 'El modelo es requerido';
+  if (!year) errors.year = 'El año es requerido';
+  if (!precio) errors.precio = 'El precio es requerido';
+
+  if (Object.keys(errors).length === 0) {
+    try {
+      const result = db.prepare(`
+        INSERT INTO cars (
+          marca, modelo, year, precio, kilometros, combustible,
+          transmision, color, descripcion, estado, origen, destacado, imagen_principal
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        marca,
+        modelo,
+        parseInt(year),
+        parseFloat(precio),
+        kilometros ? parseInt(kilometros) : null,
+        combustible,
+        transmision,
+        color,
+        descripcion,
+        estado,
+        origen,
+        destacado,
+        imagen_principal
+      );
+
+      return Astro.redirect('/admin/cars');
+    } catch (error) {
+      errors.general = 'Error al guardar el coche: ' + error.message;
+    }
+  }
+}
+---
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agregar Coche - Gevora Cars Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Line Awesome Icons -->
+  <link rel="stylesheet" href="https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css">
+</head>
+
+<body class="bg-dark-base min-h-screen">
+  <!-- Header -->
+  <header class="bg-dark-alt border-b border-gray-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="flex justify-between items-center">
+        <div class="flex items-center gap-4">
+          <a href="/admin/dashboard" class="text-2xl font-black tracking-tighter">
+            <span class="text-pearl">GEVORA</span>
+            <span class="text-gold">CARS</span>
+          </a>
+          <span class="text-gray-light">/ Agregar Coche</span>
+        </div>
+
+        <div class="flex items-center gap-4">
+          <a href="/admin/cars" class="px-4 py-2 bg-dark-card text-gray-light hover:text-pearl border border-gray-800 hover:border-gold rounded-lg transition-all duration-300">
+            ← Volver
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <h1 class="text-3xl font-bold text-pearl mb-8">Agregar Nuevo Coche</h1>
+
+    {errors.general && (
+      <div class="mb-6 p-4 bg-red-900/20 border border-red-500/50 rounded-lg">
+        <p class="text-red-400">{errors.general}</p>
+      </div>
+    )}
+
+    <form method="POST" class="bg-dark-alt p-8 rounded-xl border border-gray-800 space-y-6">
+      <!-- Información Básica -->
+      <div class="border-b border-gray-800 pb-6">
+        <h2 class="text-xl font-bold text-pearl mb-4">Información Básica</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Marca -->
+          <div class="relative">
+            <label for="marca" class="block text-pearl font-semibold mb-2">
+              <i class="las la-car-side text-gold"></i> Marca <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="marca"
+              name="marca"
+              required
+              autocomplete="off"
+              class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300"
+              placeholder="Escribe para buscar marca..."
+            />
+            <div id="marca-suggestions" class="absolute z-50 w-full mt-1 bg-dark-card border border-gray-800 rounded-lg hidden max-h-60 overflow-y-auto shadow-xl">
+            </div>
+            {errors.marca && <p class="text-red-400 text-sm mt-1">{errors.marca}</p>}
+          </div>
+
+          <!-- Modelo -->
+          <div class="relative">
+            <label for="modelo" class="block text-pearl font-semibold mb-2">
+              <i class="las la-car text-gold"></i> Modelo <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="modelo"
+              name="modelo"
+              required
+              autocomplete="off"
+              disabled
+              class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300 disabled:opacity-50"
+              placeholder="Selecciona marca primero..."
+            />
+            <div id="modelo-suggestions" class="absolute z-50 w-full mt-1 bg-dark-card border border-gray-800 rounded-lg hidden max-h-60 overflow-y-auto shadow-xl">
+            </div>
+            {errors.modelo && <p class="text-red-400 text-sm mt-1">{errors.modelo}</p>}
+          </div>
+
+          <!-- Año -->
+          <div>
+            <label for="year" class="block text-pearl font-semibold mb-2">
+              Año <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              id="year"
+              name="year"
+              required
+              min="1990"
+              max="2025"
+              class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300"
+              placeholder="2020"
+            />
+            {errors.year && <p class="text-red-400 text-sm mt-1">{errors.year}</p>}
+          </div>
+
+          <!-- Precio -->
+          <div>
+            <label for="precio" class="block text-pearl font-semibold mb-2">
+              Precio (€) <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              id="precio"
+              name="precio"
+              required
+              step="0.01"
+              class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300"
+              placeholder="25000"
+            />
+            {errors.precio && <p class="text-red-400 text-sm mt-1">{errors.precio}</p>}
+          </div>
+        </div>
+      </div>
+
+      <!-- Detalles Técnicos -->
+      <div class="border-b border-gray-800 pb-6">
+        <h2 class="text-xl font-bold text-pearl mb-4">Detalles Técnicos</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Kilómetros -->
+          <div>
+            <label for="kilometros" class="block text-pearl font-semibold mb-2">
+              Kilómetros
+            </label>
+            <input
+              type="number"
+              id="kilometros"
+              name="kilometros"
+              class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300"
+              placeholder="50000"
+            />
+          </div>
+
+          <!-- Combustible -->
+          <div>
+            <label for="combustible" class="block text-pearl font-semibold mb-2">
+              Combustible
+            </label>
+            <select
+              id="combustible"
+              name="combustible"
+              class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl focus:outline-none focus:border-gold transition-colors duration-300"
+            >
+              <option value="">Seleccionar...</option>
+              <option value="Gasolina">Gasolina</option>
+              <option value="Diésel">Diésel</option>
+              <option value="Híbrido">Híbrido</option>
+              <option value="Eléctrico">Eléctrico</option>
+              <option value="GLP">GLP</option>
+            </select>
+          </div>
+
+          <!-- Transmisión -->
+          <div>
+            <label for="transmision" class="block text-pearl font-semibold mb-2">
+              Transmisión
+            </label>
+            <select
+              id="transmision"
+              name="transmision"
+              class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl focus:outline-none focus:border-gold transition-colors duration-300"
+            >
+              <option value="">Seleccionar...</option>
+              <option value="Manual">Manual</option>
+              <option value="Automática">Automática</option>
+            </select>
+          </div>
+
+          <!-- Color -->
+          <div>
+            <label for="color" class="block text-pearl font-semibold mb-2">
+              Color
+            </label>
+            <input
+              type="text"
+              id="color"
+              name="color"
+              class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300"
+              placeholder="Negro, Blanco, Gris..."
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Estado y Origen -->
+      <div class="border-b border-gray-800 pb-6">
+        <h2 class="text-xl font-bold text-pearl mb-4">Estado y Origen</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <!-- Estado -->
+          <div>
+            <label for="estado" class="block text-pearl font-semibold mb-2">
+              Estado
+            </label>
+            <select
+              id="estado"
+              name="estado"
+              class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl focus:outline-none focus:border-gold transition-colors duration-300"
+            >
+              <option value="disponible" selected>Disponible</option>
+              <option value="vendido">Vendido</option>
+              <option value="reservado">Reservado</option>
+            </select>
+          </div>
+
+          <!-- Origen -->
+          <div>
+            <label for="origen" class="block text-pearl font-semibold mb-2">
+              Origen
+            </label>
+            <select
+              id="origen"
+              name="origen"
+              class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl focus:outline-none focus:border-gold transition-colors duration-300"
+            >
+              <option value="nacional" selected>Nacional</option>
+              <option value="alemania">Alemania</option>
+              <option value="francia">Francia</option>
+              <option value="italia">Italia</option>
+              <option value="holanda">Holanda</option>
+              <option value="belgica">Bélgica</option>
+            </select>
+          </div>
+
+          <!-- Destacado -->
+          <div>
+            <label for="destacado" class="block text-pearl font-semibold mb-2">
+              Destacado
+            </label>
+            <div class="flex items-center h-12">
+              <input
+                type="checkbox"
+                id="destacado"
+                name="destacado"
+                class="w-5 h-5 rounded border-gray-800 text-gold focus:ring-gold"
+              />
+              <label for="destacado" class="ml-3 text-gray-light">
+                Mostrar en destacados del inicio
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Descripción -->
+      <div class="border-b border-gray-800 pb-6">
+        <h2 class="text-xl font-bold text-pearl mb-4">Descripción</h2>
+
+        <div>
+          <label for="descripcion" class="block text-pearl font-semibold mb-2">
+            Descripción del vehículo
+          </label>
+          <textarea
+            id="descripcion"
+            name="descripcion"
+            rows="6"
+            class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300 resize-none"
+            placeholder="Describe el vehículo, equipamiento, estado, extras, etc."
+          ></textarea>
+        </div>
+      </div>
+
+      <!-- Imagen Principal -->
+      <div>
+        <h2 class="text-xl font-bold text-pearl mb-4">Imagen Principal</h2>
+
+        <div>
+          <label for="imagen_principal" class="block text-pearl font-semibold mb-2">
+            URL de la imagen principal
+          </label>
+          <input
+            type="url"
+            id="imagen_principal"
+            name="imagen_principal"
+            class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300"
+            placeholder="https://ejemplo.com/imagen.jpg"
+          />
+          <p class="text-sm text-gray-light mt-2">
+            Puedes usar una URL de Unsplash, tu propio servidor, o dejarlo vacío por ahora
+          </p>
+        </div>
+      </div>
+
+      <!-- Botones -->
+      <div class="flex gap-4 pt-6">
+        <button
+          type="submit"
+          class="px-8 py-4 bg-gold text-dark-base font-bold text-lg rounded-lg hover:bg-gold-light transition-all duration-300 hover-lift"
+        >
+          Guardar Coche
+        </button>
+
+        <a
+          href="/admin/cars"
+          class="px-8 py-4 bg-dark-card text-gray-light hover:text-pearl font-bold text-lg rounded-lg border border-gray-800 hover:border-gold transition-all duration-300"
+        >
+          Cancelar
+        </a>
+      </div>
+    </form>
+  </main>
+
+  <!-- JavaScript for autocomplete -->
+  <script>
+    const carsDatabase = {
+      "marcas": {
+        "Audi": ["A1", "A3", "A4", "A5", "A6", "A7", "A8", "Q2", "Q3", "Q5", "Q7", "Q8", "TT", "R8", "RS3", "RS4", "RS5", "RS6", "RS7", "e-tron"],
+        "BMW": ["Serie 1", "Serie 2", "Serie 3", "Serie 4", "Serie 5", "Serie 6", "Serie 7", "Serie 8", "X1", "X2", "X3", "X4", "X5", "X6", "X7", "Z4", "i3", "i4", "iX", "M2", "M3", "M4", "M5", "M8"],
+        "Mercedes-Benz": ["Clase A", "Clase B", "Clase C", "Clase E", "Clase S", "CLA", "CLS", "GLA", "GLB", "GLC", "GLE", "GLS", "EQA", "EQB", "EQC", "EQE", "EQS", "AMG GT", "Clase G"],
+        "Volkswagen": ["Polo", "Golf", "Golf GTI", "Golf R", "Tiguan", "Touareg", "T-Roc", "T-Cross", "Passat", "Arteon", "ID.3", "ID.4", "ID.5", "Taigo"],
+        "Seat": ["Ibiza", "Leon", "Arona", "Ateca", "Tarraco", "Leon Cupra"],
+        "Cupra": ["Formentor", "Leon", "Ateca", "Born", "Tavascan"],
+        "Renault": ["Clio", "Megane", "Captur", "Kadjar", "Arkana", "Austral", "Scenic", "Zoe", "Megane E-Tech"],
+        "Peugeot": ["208", "308", "508", "2008", "3008", "5008", "e-208", "e-2008"],
+        "Citroën": ["C3", "C4", "C5 Aircross", "Berlingo", "e-C4"],
+        "Opel": ["Corsa", "Astra", "Insignia", "Crossland", "Grandland", "Mokka", "Corsa-e"],
+        "Ford": ["Fiesta", "Focus", "Mondeo", "Kuga", "Puma", "Mustang", "Mustang Mach-E", "Ranger"],
+        "Toyota": ["Yaris", "Corolla", "Camry", "C-HR", "RAV4", "Highlander", "Land Cruiser", "Prius", "bZ4X"],
+        "Honda": ["Civic", "Accord", "CR-V", "HR-V", "Jazz", "e"],
+        "Mazda": ["Mazda2", "Mazda3", "Mazda6", "CX-3", "CX-30", "CX-5", "CX-60", "MX-5", "MX-30"],
+        "Nissan": ["Micra", "Juke", "Qashqai", "X-Trail", "Leaf", "Ariya", "GT-R"],
+        "Hyundai": ["i10", "i20", "i30", "Tucson", "Santa Fe", "Kona", "Ioniq 5", "Ioniq 6"],
+        "Kia": ["Picanto", "Rio", "Ceed", "Sportage", "Sorento", "Niro", "EV6", "Stinger"],
+        "Volvo": ["XC40", "XC60", "XC90", "S60", "S90", "V60", "V90", "C40 Recharge"],
+        "Porsche": ["911", "718 Boxster", "718 Cayman", "Taycan", "Panamera", "Macan", "Cayenne"],
+        "Tesla": ["Model 3", "Model Y", "Model S", "Model X"],
+        "Ferrari": ["Roma", "Portofino", "F8 Tributo", "SF90 Stradale", "296 GTB", "812 Superfast", "Purosangue"],
+        "Lamborghini": ["Huracán", "Urus", "Aventador", "Revuelto"],
+        "Jaguar": ["XE", "XF", "XJ", "F-Type", "E-Pace", "F-Pace", "I-Pace"],
+        "Land Rover": ["Defender", "Discovery", "Discovery Sport", "Range Rover", "Range Rover Sport", "Range Rover Evoque", "Range Rover Velar"],
+        "Mini": ["Cooper", "Countryman", "Clubman", "Cooper SE"],
+        "Fiat": ["500", "500X", "Panda", "Tipo", "500e"],
+        "Alfa Romeo": ["Giulia", "Stelvio", "Tonale"],
+        "Jeep": ["Renegade", "Compass", "Cherokee", "Grand Cherokee", "Wrangler", "Gladiator"],
+        "Dacia": ["Sandero", "Duster", "Jogger", "Spring"],
+        "Skoda": ["Fabia", "Octavia", "Superb", "Kamiq", "Karoq", "Kodiaq", "Enyaq"]
+      }
+    };
+
+    const marcaInput = document.getElementById('marca');
+    const modeloInput = document.getElementById('modelo');
+    const marcaSuggestions = document.getElementById('marca-suggestions');
+    const modeloSuggestions = document.getElementById('modelo-suggestions');
+
+    let selectedMarca = '';
+    let currentMarcaIndex = -1;
+    let currentModeloIndex = -1;
+    let marcaMatches = [];
+    let modeloMatches = [];
+
+    // Función para resaltar coincidencias
+    function highlightMatch(text, query) {
+      if (!query) return text;
+      const regex = new RegExp(`(${query})`, 'gi');
+      return text.replace(regex, '<span class="text-gold font-semibold">$1</span>');
+    }
+
+    // Función para ordenar resultados por relevancia
+    function sortByRelevance(items, query) {
+      return items.sort((a, b) => {
+        const aLower = a.toLowerCase();
+        const bLower = b.toLowerCase();
+        const queryLower = query.toLowerCase();
+        if (aLower === queryLower) return -1;
+        if (bLower === queryLower) return 1;
+        const aStarts = aLower.startsWith(queryLower);
+        const bStarts = bLower.startsWith(queryLower);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+        return a.localeCompare(b);
+      });
+    }
+
+    // Función para renderizar sugerencias
+    function renderSuggestions(container, items, query, currentIndex, onSelect) {
+      container.innerHTML = '';
+
+      if (items.length === 0) {
+        const noResults = document.createElement('div');
+        noResults.className = 'px-4 py-3 text-gray-light text-center';
+        noResults.innerHTML = '<i class="las la-exclamation-circle"></i> No se encontraron resultados';
+        container.appendChild(noResults);
+        container.classList.remove('hidden');
+        return;
+      }
+
+      const header = document.createElement('div');
+      header.className = 'px-4 py-2 bg-dark-base border-b border-gray-800 text-gray-light text-xs font-semibold';
+      header.innerHTML = `<i class="las la-list"></i> ${items.length} resultado${items.length !== 1 ? 's' : ''}`;
+      container.appendChild(header);
+
+      items.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.innerHTML = highlightMatch(item, query);
+        div.className = `px-4 py-3 cursor-pointer border-b border-gray-800 last:border-0 transition-all duration-200 ${
+          index === currentIndex ? 'bg-gold text-dark-base font-semibold' : 'text-pearl hover:bg-dark-alt'
+        }`;
+        div.dataset.index = index;
+        div.addEventListener('click', () => onSelect(item));
+        div.addEventListener('mouseenter', () => {
+          if (container === marcaSuggestions) {
+            currentMarcaIndex = index;
+          } else {
+            currentModeloIndex = index;
+          }
+          renderSuggestions(container, items, query, index, onSelect);
+        });
+        container.appendChild(div);
+      });
+
+      container.classList.remove('hidden');
+    }
+
+    function selectMarca(marca) {
+      marcaInput.value = marca;
+      selectedMarca = marca;
+      marcaSuggestions.classList.add('hidden');
+      currentMarcaIndex = -1;
+      modeloInput.value = '';
+      modeloInput.disabled = false;
+      modeloInput.placeholder = 'Busca o haz click para ver todos...';
+      modeloInput.focus();
+    }
+
+    function selectModelo(modelo) {
+      modeloInput.value = modelo;
+      modeloSuggestions.classList.add('hidden');
+      currentModeloIndex = -1;
+    }
+
+    marcaInput.addEventListener('input', (e) => {
+      const value = e.target.value;
+      currentMarcaIndex = -1;
+      if (value.length < 1) {
+        marcaSuggestions.classList.add('hidden');
+        selectedMarca = '';
+        modeloInput.value = '';
+        modeloInput.disabled = true;
+        modeloInput.placeholder = 'Primero selecciona una marca...';
+        return;
+      }
+      marcaMatches = Object.keys(carsDatabase.marcas).filter(marca =>
+        marca.toLowerCase().includes(value.toLowerCase())
+      );
+      marcaMatches = sortByRelevance(marcaMatches, value);
+      renderSuggestions(marcaSuggestions, marcaMatches, value, currentMarcaIndex, selectMarca);
+    });
+
+    marcaInput.addEventListener('keydown', (e) => {
+      if (marcaMatches.length === 0) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        currentMarcaIndex = Math.min(currentMarcaIndex + 1, marcaMatches.length - 1);
+        renderSuggestions(marcaSuggestions, marcaMatches, marcaInput.value, currentMarcaIndex, selectMarca);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        currentMarcaIndex = Math.max(currentMarcaIndex - 1, -1);
+        renderSuggestions(marcaSuggestions, marcaMatches, marcaInput.value, currentMarcaIndex, selectMarca);
+      } else if (e.key === 'Enter' && currentMarcaIndex >= 0) {
+        e.preventDefault();
+        selectMarca(marcaMatches[currentMarcaIndex]);
+      } else if (e.key === 'Escape') {
+        marcaSuggestions.classList.add('hidden');
+        currentMarcaIndex = -1;
+      }
+    });
+
+    modeloInput.addEventListener('input', (e) => {
+      const value = e.target.value;
+      currentModeloIndex = -1;
+      if (!selectedMarca) {
+        modeloSuggestions.classList.add('hidden');
+        return;
+      }
+      const modelos = carsDatabase.marcas[selectedMarca] || [];
+      if (value.length < 1) {
+        modeloMatches = modelos;
+      } else {
+        modeloMatches = modelos.filter(modelo =>
+          modelo.toLowerCase().includes(value.toLowerCase())
+        );
+        modeloMatches = sortByRelevance(modeloMatches, value);
+      }
+      renderSuggestions(modeloSuggestions, modeloMatches, value, currentModeloIndex, selectModelo);
+    });
+
+    modeloInput.addEventListener('focus', (e) => {
+      if (selectedMarca && modeloInput.value.length === 0) {
+        modeloMatches = carsDatabase.marcas[selectedMarca] || [];
+        renderSuggestions(modeloSuggestions, modeloMatches, '', currentModeloIndex, selectModelo);
+      }
+    });
+
+    modeloInput.addEventListener('keydown', (e) => {
+      if (modeloMatches.length === 0) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        currentModeloIndex = Math.min(currentModeloIndex + 1, modeloMatches.length - 1);
+        renderSuggestions(modeloSuggestions, modeloMatches, modeloInput.value, currentModeloIndex, selectModelo);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        currentModeloIndex = Math.max(currentModeloIndex - 1, -1);
+        renderSuggestions(modeloSuggestions, modeloMatches, modeloInput.value, currentModeloIndex, selectModelo);
+      } else if (e.key === 'Enter' && currentModeloIndex >= 0) {
+        e.preventDefault();
+        selectModelo(modeloMatches[currentModeloIndex]);
+      } else if (e.key === 'Escape') {
+        modeloSuggestions.classList.add('hidden');
+        currentModeloIndex = -1;
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!marcaInput.contains(e.target) && !marcaSuggestions.contains(e.target)) {
+        marcaSuggestions.classList.add('hidden');
+        currentMarcaIndex = -1;
+      }
+      if (!modeloInput.contains(e.target) && !modeloSuggestions.contains(e.target)) {
+        modeloSuggestions.classList.add('hidden');
+        currentModeloIndex = -1;
+      }
+    });
+  </script>
+</body>
+</html>

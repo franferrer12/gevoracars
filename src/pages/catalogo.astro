@@ -1,0 +1,399 @@
+---
+import '../styles/global.css';
+import db from '../lib/db.js';
+
+// Obtener parámetros de búsqueda
+const url = new URL(Astro.request.url);
+const marca = url.searchParams.get('marca') || '';
+const modelo = url.searchParams.get('modelo') || '';
+const precio_max = url.searchParams.get('precio_max') || '';
+const year_min = url.searchParams.get('year_min') || '';
+const combustible = url.searchParams.get('combustible') || '';
+const transmision = url.searchParams.get('transmision') || '';
+const origen = url.searchParams.get('origen') || '';
+
+// Construir query
+let query = `SELECT * FROM cars WHERE estado = 'disponible'`;
+const params = [];
+
+if (marca) {
+  query += ' AND marca LIKE ?';
+  params.push(`%${marca}%`);
+}
+
+if (modelo) {
+  query += ' AND modelo LIKE ?';
+  params.push(`%${modelo}%`);
+}
+
+if (precio_max) {
+  query += ' AND precio <= ?';
+  params.push(parseFloat(precio_max));
+}
+
+if (year_min) {
+  query += ' AND year >= ?';
+  params.push(parseInt(year_min));
+}
+
+if (combustible) {
+  query += ' AND combustible = ?';
+  params.push(combustible);
+}
+
+if (transmision) {
+  query += ' AND transmision = ?';
+  params.push(transmision);
+}
+
+if (origen) {
+  query += ' AND origen = ?';
+  params.push(origen);
+}
+
+query += ' ORDER BY created_at DESC';
+
+const coches = db.prepare(query).all(...params);
+const totalCoches = coches.length;
+---
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Catálogo de Coches - Gevora Cars</title>
+  <meta name="description" content="Explora nuestro catálogo completo de coches premium. Encuentra el vehículo perfecto con garantía y financiación." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Line Awesome Icons -->
+  <link rel="stylesheet" href="https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css">
+</head>
+
+<body class="bg-dark-base">
+  <!-- Header -->
+  <header class="bg-dark-alt border-b border-gray-800 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div class="flex justify-between items-center">
+        <a href="/" class="text-3xl font-black tracking-tighter">
+          <span class="text-pearl">GEVORA</span>
+          <span class="text-gold">CARS</span>
+        </a>
+
+        <a href="/" class="px-6 py-3 bg-dark-card text-gray-light hover:text-pearl border border-gray-800 hover:border-gold rounded-lg transition-all duration-300">
+          <i class="las la-arrow-left"></i> Volver al inicio
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Page Header -->
+    <div class="mb-8">
+      <h1 class="text-4xl md:text-5xl font-bold text-pearl mb-4">
+        Catálogo de <span class="text-gold">Coches</span>
+      </h1>
+      <p class="text-xl text-gray-light">
+        {totalCoches} {totalCoches === 1 ? 'vehículo disponible' : 'vehículos disponibles'}
+      </p>
+    </div>
+
+    <!-- Filtros -->
+    <div class="bg-dark-alt p-6 rounded-xl border border-gray-800 mb-8">
+      <div class="flex items-center gap-3 mb-6">
+        <i class="las la-filter text-2xl text-gold"></i>
+        <h2 class="text-2xl font-bold text-pearl">Filtros de Búsqueda</h2>
+      </div>
+
+      <form method="GET" class="space-y-6">
+        <!-- Fila 1 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- Marca -->
+          <div>
+            <label for="marca" class="block text-sm font-semibold text-pearl mb-2">
+              <i class="las la-car-side text-gold"></i> Marca
+            </label>
+            <input
+              type="text"
+              id="marca"
+              name="marca"
+              value={marca}
+              placeholder="Ej: BMW, Audi..."
+              class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300"
+            />
+          </div>
+
+          <!-- Modelo -->
+          <div>
+            <label for="modelo" class="block text-sm font-semibold text-pearl mb-2">
+              <i class="las la-car text-gold"></i> Modelo
+            </label>
+            <input
+              type="text"
+              id="modelo"
+              name="modelo"
+              value={modelo}
+              placeholder="Ej: Serie 3..."
+              class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300"
+            />
+          </div>
+
+          <!-- Precio Máximo -->
+          <div>
+            <label for="precio_max" class="block text-sm font-semibold text-pearl mb-2">
+              <i class="las la-euro-sign text-gold"></i> Precio Máximo
+            </label>
+            <select
+              id="precio_max"
+              name="precio_max"
+              class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl focus:outline-none focus:border-gold transition-colors duration-300"
+            >
+              <option value="">Cualquiera</option>
+              <option value="10000" selected={precio_max === '10000'}>Hasta 10.000€</option>
+              <option value="20000" selected={precio_max === '20000'}>Hasta 20.000€</option>
+              <option value="30000" selected={precio_max === '30000'}>Hasta 30.000€</option>
+              <option value="40000" selected={precio_max === '40000'}>Hasta 40.000€</option>
+              <option value="50000" selected={precio_max === '50000'}>Hasta 50.000€</option>
+              <option value="75000" selected={precio_max === '75000'}>Hasta 75.000€</option>
+              <option value="100000" selected={precio_max === '100000'}>Hasta 100.000€</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Fila 2 -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <!-- Año -->
+          <div>
+            <label for="year_min" class="block text-sm font-semibold text-pearl mb-2">
+              <i class="las la-calendar text-gold"></i> Año desde
+            </label>
+            <select
+              id="year_min"
+              name="year_min"
+              class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl focus:outline-none focus:border-gold transition-colors duration-300"
+            >
+              <option value="">Cualquiera</option>
+              <option value="2024" selected={year_min === '2024'}>2024</option>
+              <option value="2023" selected={year_min === '2023'}>2023</option>
+              <option value="2022" selected={year_min === '2022'}>2022</option>
+              <option value="2021" selected={year_min === '2021'}>2021</option>
+              <option value="2020" selected={year_min === '2020'}>2020</option>
+              <option value="2019" selected={year_min === '2019'}>2019</option>
+              <option value="2018" selected={year_min === '2018'}>2018</option>
+              <option value="2017" selected={year_min === '2017'}>2017</option>
+              <option value="2015" selected={year_min === '2015'}>2015</option>
+            </select>
+          </div>
+
+          <!-- Combustible -->
+          <div>
+            <label for="combustible" class="block text-sm font-semibold text-pearl mb-2">
+              <i class="las la-gas-pump text-gold"></i> Combustible
+            </label>
+            <select
+              id="combustible"
+              name="combustible"
+              class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl focus:outline-none focus:border-gold transition-colors duration-300"
+            >
+              <option value="">Todos</option>
+              <option value="Gasolina" selected={combustible === 'Gasolina'}>Gasolina</option>
+              <option value="Diésel" selected={combustible === 'Diésel'}>Diésel</option>
+              <option value="Híbrido" selected={combustible === 'Híbrido'}>Híbrido</option>
+              <option value="Eléctrico" selected={combustible === 'Eléctrico'}>Eléctrico</option>
+            </select>
+          </div>
+
+          <!-- Transmisión -->
+          <div>
+            <label for="transmision" class="block text-sm font-semibold text-pearl mb-2">
+              <i class="las la-cog text-gold"></i> Transmisión
+            </label>
+            <select
+              id="transmision"
+              name="transmision"
+              class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl focus:outline-none focus:border-gold transition-colors duration-300"
+            >
+              <option value="">Todas</option>
+              <option value="Manual" selected={transmision === 'Manual'}>Manual</option>
+              <option value="Automática" selected={transmision === 'Automática'}>Automática</option>
+            </select>
+          </div>
+
+          <!-- Origen -->
+          <div>
+            <label for="origen" class="block text-sm font-semibold text-pearl mb-2">
+              <i class="las la-globe-europe text-gold"></i> Origen
+            </label>
+            <select
+              id="origen"
+              name="origen"
+              class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl focus:outline-none focus:border-gold transition-colors duration-300"
+            >
+              <option value="">Todos</option>
+              <option value="nacional" selected={origen === 'nacional'}>Nacional</option>
+              <option value="alemania" selected={origen === 'alemania'}>Alemania</option>
+              <option value="francia" selected={origen === 'francia'}>Francia</option>
+              <option value="italia" selected={origen === 'italia'}>Italia</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Botones -->
+        <div class="flex gap-4">
+          <button
+            type="submit"
+            class="px-8 py-3 bg-gold text-dark-base font-bold rounded-lg hover:bg-gold-light transition-all duration-300 hover-lift flex items-center gap-2"
+          >
+            <i class="las la-search"></i>
+            Aplicar Filtros
+          </button>
+
+          <a
+            href="/catalogo"
+            class="px-8 py-3 bg-dark-card text-gray-light hover:text-pearl border border-gray-800 hover:border-gold rounded-lg font-bold transition-all duration-300"
+          >
+            <i class="las la-redo"></i>
+            Limpiar Filtros
+          </a>
+        </div>
+      </form>
+    </div>
+
+    <!-- Grid de coches -->
+    {coches.length === 0 ? (
+      <div class="text-center py-20">
+        <div class="text-8xl mb-6 text-gray-700"><i class="las la-car-crash"></i></div>
+        <h2 class="text-3xl font-bold text-pearl mb-4">No se encontraron vehículos</h2>
+        <p class="text-xl text-gray-light mb-8">
+          Intenta ajustar los filtros de búsqueda
+        </p>
+        <a
+          href="/catalogo"
+          class="inline-block px-8 py-4 bg-gold text-dark-base font-bold rounded-lg hover:bg-gold-light transition-all duration-300"
+        >
+          Ver todos los coches
+        </a>
+      </div>
+    ) : (
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {coches.map(coche => (
+          <div class="bg-dark-alt rounded-xl overflow-hidden border border-gray-800 hover:border-gold transition-all duration-300 hover-lift">
+            <!-- Imagen -->
+            <div class="relative h-56 bg-dark-card overflow-hidden">
+              {coche.imagen_principal ? (
+                <img
+                  src={coche.imagen_principal}
+                  alt={`${coche.marca} ${coche.modelo}`}
+                  class="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
+                />
+              ) : (
+                <div class="w-full h-full flex items-center justify-center text-6xl text-gray-700">
+                  <i class="las la-car"></i>
+                </div>
+              )}
+
+              <!-- Badge de origen -->
+              {coche.origen !== 'nacional' && (
+                <div class="absolute top-4 right-4 px-3 py-1 bg-gold text-dark-base text-xs font-bold rounded-full">
+                  {coche.origen === 'alemania' ? '🇩🇪 Alemania' :
+                   coche.origen === 'francia' ? '🇫🇷 Francia' :
+                   coche.origen === 'italia' ? '🇮🇹 Italia' :
+                   coche.origen.toUpperCase()}
+                </div>
+              )}
+
+              <!-- Badge destacado -->
+              {coche.destacado === 1 && (
+                <div class="absolute top-4 left-4 px-3 py-1 bg-dark-base/80 text-gold text-xs font-bold rounded-full flex items-center gap-1">
+                  <i class="las la-star"></i> Destacado
+                </div>
+              )}
+            </div>
+
+            <!-- Información -->
+            <div class="p-6">
+              <h3 class="text-2xl font-bold text-pearl mb-2">
+                {coche.marca} {coche.modelo}
+              </h3>
+
+              <!-- Detalles -->
+              <div class="flex flex-wrap gap-3 mb-4 text-sm text-gray-light">
+                <span class="flex items-center gap-1">
+                  <i class="las la-calendar text-gold"></i> {coche.year}
+                </span>
+                {coche.kilometros && (
+                  <span class="flex items-center gap-1">
+                    <i class="las la-tachometer-alt text-gold"></i> {coche.kilometros.toLocaleString('es-ES')} km
+                  </span>
+                )}
+                {coche.combustible && (
+                  <span class="flex items-center gap-1">
+                    <i class="las la-gas-pump text-gold"></i> {coche.combustible}
+                  </span>
+                )}
+                {coche.transmision && (
+                  <span class="flex items-center gap-1">
+                    <i class="las la-cog text-gold"></i> {coche.transmision}
+                  </span>
+                )}
+              </div>
+
+              <!-- Descripción -->
+              {coche.descripcion && (
+                <p class="text-gray-light text-sm mb-4 line-clamp-2">
+                  {coche.descripcion}
+                </p>
+              )}
+
+              <!-- Precio y CTA -->
+              <div class="flex justify-between items-center pt-4 border-t border-gray-800">
+                <div>
+                  <div class="text-3xl font-bold text-gold">
+                    {coche.precio.toLocaleString('es-ES')}€
+                  </div>
+                </div>
+                <a
+                  href="/#contacto"
+                  class="px-6 py-3 bg-gold text-dark-base font-bold rounded-lg hover:bg-gold-light transition-all duration-300 flex items-center gap-2"
+                >
+                  <i class="las la-comments"></i>
+                  Consultar
+                </a>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-dark-base border-t border-gray-800 py-12 mt-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <div class="mb-6">
+        <h3 class="text-3xl font-black tracking-tighter">
+          <span class="text-pearl">GEVORA</span>
+          <span class="text-gold">CARS</span>
+        </h3>
+      </div>
+
+      <div class="flex justify-center gap-8 mb-6 text-gray-light">
+        <a href="/" class="hover:text-gold transition-colors duration-300">Inicio</a>
+        <a href="/#como-funciona" class="hover:text-gold transition-colors duration-300">Cómo funciona</a>
+        <a href="/#servicios" class="hover:text-gold transition-colors duration-300">Servicios</a>
+        <a href="/#contacto" class="hover:text-gold transition-colors duration-300">Contacto</a>
+      </div>
+
+      <p class="text-sm text-gray-medium">
+        © 2024 Gevora Cars SL. Todos los derechos reservados.
+      </p>
+    </div>
+  </footer>
+</body>
+</html>

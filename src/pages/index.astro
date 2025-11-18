@@ -1,0 +1,1402 @@
+---
+import '../styles/global.css';
+import db from '../lib/db.js';
+
+// Obtener coches destacados y disponibles
+const cochesDestacados = db.prepare(`
+  SELECT * FROM cars
+  WHERE destacado = 1 AND estado = 'disponible'
+  ORDER BY created_at DESC
+  LIMIT 6
+`).all();
+
+// Si no hay coches destacados, mostrar los 6 más recientes disponibles
+const cochesParaMostrar = cochesDestacados.length > 0
+  ? cochesDestacados
+  : db.prepare(`
+      SELECT * FROM cars
+      WHERE estado = 'disponible'
+      ORDER BY created_at DESC
+      LIMIT 6
+    `).all();
+
+// Manejar formulario de contacto
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const action = formData.get('action')?.toString();
+
+  if (action === 'contact') {
+    const nombre = formData.get('nombre')?.toString();
+    const email = formData.get('email')?.toString();
+    const telefono = formData.get('telefono')?.toString();
+    const tipo = formData.get('action') === 'vender' ? 'vender' : 'comprar';
+    const marca = formData.get('marca')?.toString();
+    const modelo = formData.get('modelo')?.toString();
+    const mensaje = formData.get('mensaje')?.toString();
+
+    if (nombre && email && telefono) {
+      db.prepare(`
+        INSERT INTO leads (nombre, email, telefono, tipo, marca, modelo, mensaje, estado)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'nuevo')
+      `).run(nombre, email, telefono, tipo, marca || null, modelo || null, mensaje || null);
+    }
+  }
+}
+---
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gevora Cars | Vende o Compra tu Coche Premium con Total Confianza</title>
+  <meta name="description" content="Vende tu coche GRATIS o compra el coche de tus sueños. Importación desde Alemania, garantía premium, financiación. Servicio completo sin esfuerzo." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Line Awesome Icons -->
+  <link rel="stylesheet" href="https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css">
+</head>
+
+<body class="overflow-x-hidden">
+
+  <!-- HERO SECTION -->
+  <section class="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <!-- Background gradient -->
+    <div class="absolute inset-0 bg-gradient-to-br from-[#0A0A0A] via-[#1A1A1A] to-[#0A0A0A]"></div>
+
+    <!-- Decorative elements -->
+    <div class="absolute top-20 right-20 w-64 h-64 bg-gold opacity-5 rounded-full blur-3xl"></div>
+    <div class="absolute bottom-20 left-20 w-96 h-96 bg-gold opacity-5 rounded-full blur-3xl"></div>
+
+    <!-- Content -->
+    <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+      <!-- Logo / Brand -->
+      <div class="mb-8">
+        <h1 class="text-6xl md:text-8xl font-black tracking-tighter mb-4">
+          <span class="text-pearl">GEVORA</span>
+          <span class="text-gold text-shadow-glow">CARS</span>
+        </h1>
+        <div class="h-1 w-32 bg-gold mx-auto"></div>
+      </div>
+
+      <!-- Main headline -->
+      <h2 class="text-3xl md:text-5xl lg:text-6xl font-bold text-pearl mb-6 leading-tight">
+        El servicio más <span class="text-gold">cómodo, seguro y rentable</span><br/>
+        para vender o comprar tu coche
+      </h2>
+
+      <p class="text-xl md:text-2xl text-gray-light max-w-3xl mx-auto mb-12">
+        Vende tu coche <span class="text-gold font-semibold">100% GRATIS</span> sin esfuerzo o encuentra el coche de tus sueños con importación desde Alemania
+      </p>
+
+      <!-- Dual CTA Buttons -->
+      <div class="flex flex-col sm:flex-row gap-6 justify-center items-center mb-16">
+        <a href="#vender" class="group relative px-10 py-5 bg-gold text-dark-base font-bold text-lg rounded-lg hover-lift overflow-hidden transition-all duration-300">
+          <span class="relative z-10">Quiero VENDER mi coche</span>
+          <div class="absolute inset-0 bg-gold-light transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
+        </a>
+
+        <a href="#comprar" class="group relative px-10 py-5 bg-transparent border-2 border-gold text-gold font-bold text-lg rounded-lg hover:bg-gold hover:text-dark-base transition-all duration-300 hover-lift">
+          <span class="relative z-10">Quiero COMPRAR un coche</span>
+        </a>
+      </div>
+
+      <!-- Buscador de Coches -->
+      <div class="max-w-5xl mx-auto">
+        <div class="bg-dark-alt/90 backdrop-blur-sm rounded-2xl p-8 border border-gold/30 shadow-2xl">
+          <div class="flex items-center gap-3 mb-6">
+            <i class="las la-search text-3xl text-gold"></i>
+            <h3 class="text-2xl font-bold text-pearl">Encuentra tu coche ideal</h3>
+          </div>
+
+          <form action="/catalogo" method="GET" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <!-- Marca con Autocomplete -->
+              <div class="relative">
+                <label for="search-marca" class="block text-sm font-semibold text-pearl mb-2">
+                  <i class="las la-car-side text-gold"></i> Marca
+                </label>
+                <input
+                  type="text"
+                  id="search-marca"
+                  name="marca"
+                  autocomplete="off"
+                  placeholder="Ej: BMW, Audi, Mercedes..."
+                  class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300"
+                />
+                <div id="marca-suggestions" class="absolute z-50 w-full mt-1 bg-dark-card border border-gray-800 rounded-lg hidden max-h-60 overflow-y-auto shadow-xl">
+                </div>
+              </div>
+
+              <!-- Modelo con Autocomplete -->
+              <div class="relative">
+                <label for="search-modelo" class="block text-sm font-semibold text-pearl mb-2">
+                  <i class="las la-car text-gold"></i> Modelo
+                </label>
+                <input
+                  type="text"
+                  id="search-modelo"
+                  name="modelo"
+                  autocomplete="off"
+                  placeholder="Selecciona marca primero..."
+                  disabled
+                  class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300 disabled:opacity-50"
+                />
+                <div id="modelo-suggestions" class="absolute z-50 w-full mt-1 bg-dark-card border border-gray-800 rounded-lg hidden max-h-60 overflow-y-auto shadow-xl">
+                </div>
+              </div>
+
+              <!-- Precio Máximo -->
+              <div>
+                <label for="search-precio" class="block text-sm font-semibold text-pearl mb-2">
+                  <i class="las la-euro-sign text-gold"></i> Precio Máximo
+                </label>
+                <select
+                  id="search-precio"
+                  name="precio_max"
+                  class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl focus:outline-none focus:border-gold transition-colors duration-300"
+                >
+                  <option value="">Cualquiera</option>
+                  <option value="10000">Hasta 10.000€</option>
+                  <option value="20000">Hasta 20.000€</option>
+                  <option value="30000">Hasta 30.000€</option>
+                  <option value="40000">Hasta 40.000€</option>
+                  <option value="50000">Hasta 50.000€</option>
+                  <option value="75000">Hasta 75.000€</option>
+                  <option value="100000">Hasta 100.000€</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Filtros adicionales -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <!-- Año -->
+              <div>
+                <label for="search-year" class="block text-sm font-semibold text-pearl mb-2">
+                  <i class="las la-calendar text-gold"></i> Año desde
+                </label>
+                <select
+                  id="search-year"
+                  name="year_min"
+                  class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl focus:outline-none focus:border-gold transition-colors duration-300"
+                >
+                  <option value="">Cualquiera</option>
+                  <option value="2024">2024</option>
+                  <option value="2023">2023</option>
+                  <option value="2022">2022</option>
+                  <option value="2021">2021</option>
+                  <option value="2020">2020</option>
+                  <option value="2019">2019</option>
+                  <option value="2018">2018</option>
+                  <option value="2017">2017</option>
+                  <option value="2015">2015</option>
+                </select>
+              </div>
+
+              <!-- Combustible -->
+              <div>
+                <label for="search-combustible" class="block text-sm font-semibold text-pearl mb-2">
+                  <i class="las la-gas-pump text-gold"></i> Combustible
+                </label>
+                <select
+                  id="search-combustible"
+                  name="combustible"
+                  class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl focus:outline-none focus:border-gold transition-colors duration-300"
+                >
+                  <option value="">Todos</option>
+                  <option value="Gasolina">Gasolina</option>
+                  <option value="Diésel">Diésel</option>
+                  <option value="Híbrido">Híbrido</option>
+                  <option value="Eléctrico">Eléctrico</option>
+                </select>
+              </div>
+
+              <!-- Transmisión -->
+              <div>
+                <label for="search-transmision" class="block text-sm font-semibold text-pearl mb-2">
+                  <i class="las la-cog text-gold"></i> Transmisión
+                </label>
+                <select
+                  id="search-transmision"
+                  name="transmision"
+                  class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl focus:outline-none focus:border-gold transition-colors duration-300"
+                >
+                  <option value="">Todas</option>
+                  <option value="Manual">Manual</option>
+                  <option value="Automática">Automática</option>
+                </select>
+              </div>
+
+              <!-- Origen -->
+              <div>
+                <label for="search-origen" class="block text-sm font-semibold text-pearl mb-2">
+                  <i class="las la-globe-europe text-gold"></i> Origen
+                </label>
+                <select
+                  id="search-origen"
+                  name="origen"
+                  class="w-full px-4 py-3 bg-dark-base border border-gray-800 rounded-lg text-pearl focus:outline-none focus:border-gold transition-colors duration-300"
+                >
+                  <option value="">Todos</option>
+                  <option value="nacional">Nacional</option>
+                  <option value="alemania">Alemania</option>
+                  <option value="francia">Francia</option>
+                  <option value="italia">Italia</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Botón Buscar -->
+            <button
+              type="submit"
+              class="w-full py-4 bg-gold text-dark-base font-bold text-lg rounded-lg hover:bg-gold-light transition-all duration-300 hover-lift flex items-center justify-center gap-2"
+            >
+              <i class="las la-search text-xl"></i>
+              Buscar Coches
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Trust badges -->
+      <div class="flex flex-wrap justify-center items-center gap-8 text-sm text-gray-medium">
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-gold" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          <span>Servicio GRATIS</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-gold" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          <span>Garantía Premium</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-gold" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          <span>Financiación disponible</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-gold" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          <span>Importación Alemania</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scroll indicator -->
+    <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
+      <svg class="w-6 h-6 text-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+      </svg>
+    </div>
+  </section>
+
+  <!-- CATÁLOGO DE COCHES SECTION -->
+  {cochesParaMostrar.length > 0 && (
+    <section id="catalogo" class="py-24 bg-dark-base relative">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16">
+          <h2 class="text-4xl md:text-5xl font-bold text-pearl mb-4">
+            Coches <span class="text-gold">Destacados</span>
+          </h2>
+          <p class="text-xl text-gray-light">Vehículos premium seleccionados para ti</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {cochesParaMostrar.map(coche => (
+            <div class="bg-dark-alt rounded-xl overflow-hidden border border-gray-800 hover:border-gold transition-all duration-300 hover-lift">
+              <!-- Imagen del coche -->
+              <div class="relative h-56 bg-dark-card overflow-hidden">
+                {coche.imagen_principal ? (
+                  <img
+                    src={coche.imagen_principal}
+                    alt={`${coche.marca} ${coche.modelo}`}
+                    class="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
+                  />
+                ) : (
+                  <div class="w-full h-full flex items-center justify-center text-6xl">
+                    🚗
+                  </div>
+                )}
+
+                <!-- Badge de origen -->
+                {coche.origen !== 'nacional' && (
+                  <div class="absolute top-4 right-4 px-3 py-1 bg-gold text-dark-base text-xs font-bold rounded-full">
+                    {coche.origen === 'alemania' ? '🇩🇪 Alemania' :
+                     coche.origen === 'francia' ? '🇫🇷 Francia' :
+                     coche.origen === 'italia' ? '🇮🇹 Italia' :
+                     coche.origen.toUpperCase()}
+                  </div>
+                )}
+
+                <!-- Badge destacado -->
+                {coche.destacado === 1 && (
+                  <div class="absolute top-4 left-4 px-3 py-1 bg-dark-base/80 text-gold text-xs font-bold rounded-full flex items-center gap-1">
+                    <span>★</span> Destacado
+                  </div>
+                )}
+              </div>
+
+              <!-- Información del coche -->
+              <div class="p-6">
+                <!-- Marca y modelo -->
+                <h3 class="text-2xl font-bold text-pearl mb-2">
+                  {coche.marca} {coche.modelo}
+                </h3>
+
+                <!-- Detalles -->
+                <div class="flex flex-wrap gap-3 mb-4 text-sm text-gray-light">
+                  <span class="flex items-center gap-1">
+                    <i class="las la-calendar text-gold"></i> {coche.year}
+                  </span>
+                  {coche.kilometros && (
+                    <span class="flex items-center gap-1">
+                      <i class="las la-tachometer-alt text-gold"></i> {coche.kilometros.toLocaleString('es-ES')} km
+                    </span>
+                  )}
+                  {coche.combustible && (
+                    <span class="flex items-center gap-1">
+                      <i class="las la-gas-pump text-gold"></i> {coche.combustible}
+                    </span>
+                  )}
+                  {coche.transmision && (
+                    <span class="flex items-center gap-1">
+                      <i class="las la-cog text-gold"></i> {coche.transmision}
+                    </span>
+                  )}
+                </div>
+
+                <!-- Descripción corta -->
+                {coche.descripcion && (
+                  <p class="text-gray-light text-sm mb-4 line-clamp-2">
+                    {coche.descripcion}
+                  </p>
+                )}
+
+                <!-- Precio y CTA -->
+                <div class="flex justify-between items-center pt-4 border-t border-gray-800">
+                  <div>
+                    <div class="text-3xl font-bold text-gold">
+                      {coche.precio.toLocaleString('es-ES')}€
+                    </div>
+                  </div>
+                  <a
+                    href="#contacto"
+                    class="px-6 py-3 bg-gold text-dark-base font-bold rounded-lg hover:bg-gold-light transition-all duration-300"
+                  >
+                    Consultar
+                  </a>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <!-- CTA Ver más -->
+        <div class="text-center mt-12">
+          <a
+            href="/catalogo"
+            class="inline-block px-10 py-5 bg-transparent border-2 border-gold text-gold font-bold text-lg rounded-lg hover:bg-gold hover:text-dark-base transition-all duration-300 hover-lift"
+          >
+            Ver Todo el Catálogo →
+          </a>
+        </div>
+      </div>
+    </section>
+  )}
+
+  <!-- CÓMO FUNCIONA SECTION -->
+  <section id="como-funciona" class="py-24 bg-dark-alt relative">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16">
+        <h2 class="text-4xl md:text-5xl font-bold text-pearl mb-4">
+          ¿Cómo <span class="text-gold">funciona</span>?
+        </h2>
+        <p class="text-xl text-gray-light">Servicio completo sin esfuerzo para ti</p>
+      </div>
+
+      <!-- Tab Selector -->
+      <div class="flex justify-center mb-12">
+        <div class="inline-flex rounded-lg border border-gold p-1 bg-dark-card">
+          <button class="tab-button active px-8 py-3 rounded-lg font-semibold transition-all duration-300" data-tab="vender">
+            Vender mi coche
+          </button>
+          <button class="tab-button px-8 py-3 rounded-lg font-semibold transition-all duration-300" data-tab="comprar">
+            Comprar un coche
+          </button>
+        </div>
+      </div>
+
+      <!-- VENDER Tab Content -->
+      <div id="tab-vender" class="tab-content">
+        <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <!-- Step 1 -->
+          <div class="group bg-dark-card p-8 rounded-xl hover-lift border border-transparent hover:border-gold transition-all duration-300">
+            <div class="w-16 h-16 bg-gold rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+              <span class="text-3xl font-bold text-dark-base">1</span>
+            </div>
+            <h3 class="text-2xl font-bold text-pearl mb-4">Valoración Gratuita</h3>
+            <p class="text-gray-light leading-relaxed">
+              Nos envías fotos y datos de tu coche. Te hacemos una valoración realista del precio de mercado.
+            </p>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="group bg-dark-card p-8 rounded-xl hover-lift border border-transparent hover:border-gold transition-all duration-300">
+            <div class="w-16 h-16 bg-gold rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+              <span class="text-3xl font-bold text-dark-base">2</span>
+            </div>
+            <h3 class="text-2xl font-bold text-pearl mb-4">Firma y Fotos PRO</h3>
+            <p class="text-gray-light leading-relaxed">
+              Firmas el contrato y hacemos fotos profesionales. Publicamos en todos los portales principales.
+            </p>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="group bg-dark-card p-8 rounded-xl hover-lift border border-transparent hover:border-gold transition-all duration-300">
+            <div class="w-16 h-16 bg-gold rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+              <span class="text-3xl font-bold text-dark-base">3</span>
+            </div>
+            <h3 class="text-2xl font-bold text-pearl mb-4">Gestión Total</h3>
+            <p class="text-gray-light leading-relaxed">
+              Nos encargamos de TODO: visitas, negociaciones, papeleo. Tú sigues usando tu coche.
+            </p>
+          </div>
+
+          <!-- Step 4 -->
+          <div class="group bg-dark-card p-8 rounded-xl hover-lift border border-transparent hover:border-gold transition-all duration-300">
+            <div class="w-16 h-16 bg-gold rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+              <span class="text-3xl font-bold text-dark-base">4</span>
+            </div>
+            <h3 class="text-2xl font-bold text-pearl mb-4">Cobras tu Dinero</h3>
+            <p class="text-gray-light leading-relaxed">
+              Cuando se vende, recibes tu pago. Solo cobramos si lo vendemos. Sin sorpresas, total transparencia.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMPRAR Tab Content -->
+      <div id="tab-comprar" class="tab-content hidden">
+        <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <!-- Step 1 -->
+          <div class="group bg-dark-card p-8 rounded-xl hover-lift border border-transparent hover:border-gold transition-all duration-300">
+            <div class="w-16 h-16 bg-gold rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+              <span class="text-3xl font-bold text-dark-base">1</span>
+            </div>
+            <h3 class="text-2xl font-bold text-pearl mb-4">Dinos Qué Buscas</h3>
+            <p class="text-gray-light leading-relaxed">
+              Nos cuentas qué coche quieres: modelo, presupuesto, extras, nacional o importado de Alemania.
+            </p>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="group bg-dark-card p-8 rounded-xl hover-lift border border-transparent hover:border-gold transition-all duration-300">
+            <div class="w-16 h-16 bg-gold rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+              <span class="text-3xl font-bold text-dark-base">2</span>
+            </div>
+            <h3 class="text-2xl font-bold text-pearl mb-4">Búsqueda Profesional</h3>
+            <p class="text-gray-light leading-relaxed">
+              Buscamos en España y Alemania. Te enviamos solo las mejores opciones verificadas y filtradas.
+            </p>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="group bg-dark-card p-8 rounded-xl hover-lift border border-transparent hover:border-gold transition-all duration-300">
+            <div class="w-16 h-16 bg-gold rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+              <span class="text-3xl font-bold text-dark-base">3</span>
+            </div>
+            <h3 class="text-2xl font-bold text-pearl mb-4">Verificación e Importación</h3>
+            <p class="text-gray-light leading-relaxed">
+              Inspeccionamos el coche, gestionamos transporte, ITV, matriculación. Tú no haces nada.
+            </p>
+          </div>
+
+          <!-- Step 4 -->
+          <div class="group bg-dark-card p-8 rounded-xl hover-lift border border-transparent hover:border-gold transition-all duration-300">
+            <div class="w-16 h-16 bg-gold rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+              <span class="text-3xl font-bold text-dark-base">4</span>
+            </div>
+            <h3 class="text-2xl font-bold text-pearl mb-4">Recibe tu Coche</h3>
+            <p class="text-gray-light leading-relaxed">
+              Te entregamos el coche revisado, con garantía premium y listo para circular. ¡Disfrútalo!
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICIOS SECTION -->
+  <section id="servicios" class="py-24 bg-dark-base relative overflow-hidden">
+    <!-- Decorative gradient -->
+    <div class="absolute top-0 right-0 w-96 h-96 bg-gold opacity-5 rounded-full blur-3xl"></div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div class="text-center mb-16">
+        <h2 class="text-4xl md:text-5xl font-bold text-pearl mb-4">
+          Nuestros <span class="text-gold">Servicios</span>
+        </h2>
+        <p class="text-xl text-gray-light">Todo lo que necesitas, en un solo lugar</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <!-- Servicio 1 -->
+        <div class="bg-dark-alt p-8 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300 hover-lift">
+          <div class="text-5xl mb-4 text-gold"><i class="las la-camera"></i></div>
+          <h3 class="text-2xl font-bold text-pearl mb-4">Fotos Profesionales</h3>
+          <p class="text-gray-light mb-4">
+            Sesión fotográfica premium de tu vehículo para maximizar su atractivo en los portales.
+          </p>
+          <span class="text-gold font-semibold">Incluido GRATIS</span>
+        </div>
+
+        <!-- Servicio 2 -->
+        <div class="bg-dark-alt p-8 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300 hover-lift">
+          <div class="text-5xl mb-4 text-gold"><i class="las la-search"></i></div>
+          <h3 class="text-2xl font-bold text-pearl mb-4">Inspección Técnica</h3>
+          <p class="text-gray-light mb-4">
+            Verificación exhaustiva del estado del vehículo con informe completo antes de comprar.
+          </p>
+          <span class="text-gold font-semibold">Tranquilidad total</span>
+        </div>
+
+        <!-- Servicio 3 -->
+        <div class="bg-dark-alt p-8 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300 hover-lift">
+          <div class="text-5xl mb-4 text-gold"><i class="las la-file-contract"></i></div>
+          <h3 class="text-2xl font-bold text-pearl mb-4">Gestión Documental</h3>
+          <p class="text-gray-light mb-4">
+            Nos encargamos de contratos, cambio de nombre, matriculación, ITV. Todo resuelto.
+          </p>
+          <span class="text-gold font-semibold">Sin papeleo para ti</span>
+        </div>
+
+        <!-- Servicio 4 -->
+        <div class="bg-dark-alt p-8 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300 hover-lift">
+          <div class="text-5xl mb-4 text-gold"><i class="las la-shipping-fast"></i></div>
+          <h3 class="text-2xl font-bold text-pearl mb-4">Transporte Seguro</h3>
+          <p class="text-gray-light mb-4">
+            Transporte puerta a puerta desde Alemania o cualquier punto de España. Asegurado.
+          </p>
+          <span class="text-gold font-semibold">Entrega garantizada</span>
+        </div>
+
+        <!-- Servicio 5 -->
+        <div class="bg-dark-alt p-8 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300 hover-lift">
+          <div class="text-5xl mb-4 text-gold"><i class="las la-shield-alt"></i></div>
+          <h3 class="text-2xl font-bold text-pearl mb-4">Garantía Premium</h3>
+          <p class="text-gray-light mb-4">
+            Garantía de 1 año mínimo cubriendo más de 500 piezas, incluido filtro de partículas y EGR.
+          </p>
+          <span class="text-gold font-semibold">350€ - Máxima cobertura</span>
+        </div>
+
+        <!-- Servicio 6 -->
+        <div class="bg-dark-alt p-8 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300 hover-lift">
+          <div class="text-5xl mb-4 text-gold"><i class="las la-credit-card"></i></div>
+          <h3 class="text-2xl font-bold text-pearl mb-4">Financiación</h3>
+          <p class="text-gray-light mb-4">
+            Te ayudamos a conseguir la mejor financiación con las principales entidades del sector.
+          </p>
+          <span class="text-gold font-semibold">Facilidades de pago</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIOS SECTION -->
+  <section id="testimonios" class="py-24 bg-dark-alt">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16">
+        <h2 class="text-4xl md:text-5xl font-bold text-pearl mb-4">
+          Clientes <span class="text-gold">Satisfechos</span>
+        </h2>
+        <p class="text-xl text-gray-light">Lo que dicen quienes ya confiaron en nosotros</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <!-- Testimonio 1 -->
+        <div class="bg-dark-card p-8 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300">
+          <div class="flex items-center gap-1 mb-4">
+            <span class="text-gold text-2xl">★★★★★</span>
+          </div>
+          <p class="text-gray-light italic mb-6 leading-relaxed">
+            "Nunca había vendido un coche tan fácil. Álvaro se encargó de todo: fotos, papeleo, llamadas... yo solo seguí usando mi coche hasta el día que lo vendió. Además, me consiguió más dinero del que esperaba."
+          </p>
+          <div class="border-t border-gray-800 pt-4">
+            <p class="font-semibold text-pearl">Javier R.</p>
+            <p class="text-sm text-gold">Audi A3 - Valencia</p>
+          </div>
+        </div>
+
+        <!-- Testimonio 2 -->
+        <div class="bg-dark-card p-8 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300">
+          <div class="flex items-center gap-1 mb-4">
+            <span class="text-gold text-2xl">★★★★★</span>
+          </div>
+          <p class="text-gray-light italic mb-6 leading-relaxed">
+            "Buscaba un RS3 perfecto y tenía miedo de estafas. Álvaro encontró una unidad brutal en Alemania, la inspeccionó, la negoció y me la trajo con garantía. Proceso impecable."
+          </p>
+          <div class="border-t border-gray-800 pt-4">
+            <p class="font-semibold text-pearl">Alejandro P.</p>
+            <p class="text-sm text-gold">Audi RS3 - Alicante</p>
+          </div>
+        </div>
+
+        <!-- Testimonio 3 -->
+        <div class="bg-dark-card p-8 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300">
+          <div class="flex items-center gap-1 mb-4">
+            <span class="text-gold text-2xl">★★★★★</span>
+          </div>
+          <p class="text-gray-light italic mb-6 leading-relaxed">
+            "Intenté venderlo por mi cuenta y fue un caos. Con Gevora Cars fue todo lo contrario: servicio gratuito, profesional y rápido. Lo vendieron en 6 días y sin que yo hiciera nada."
+          </p>
+          <div class="border-t border-gray-800 pt-4">
+            <p class="font-semibold text-pearl">Carmen M.</p>
+            <p class="text-sm text-gold">BMW X1 - Castellón</p>
+          </div>
+        </div>
+
+        <!-- Testimonio 4 -->
+        <div class="bg-dark-card p-8 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300">
+          <div class="flex items-center gap-1 mb-4">
+            <span class="text-gold text-2xl">★★★★★</span>
+          </div>
+          <p class="text-gray-light italic mb-6 leading-relaxed">
+            "Me sorprendió que el servicio fuera gratis. Lo mejor es que pude usar mi coche mientras ellos lo vendían. Álvaro me explicó todo con claridad desde el primer momento y cumplió lo prometido."
+          </p>
+          <div class="border-t border-gray-800 pt-4">
+            <p class="font-semibold text-pearl">Luis F.</p>
+            <p class="text-sm text-gold">Mercedes Clase C - Madrid</p>
+          </div>
+        </div>
+
+        <!-- Testimonio 5 -->
+        <div class="bg-dark-card p-8 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300">
+          <div class="flex items-center gap-1 mb-4">
+            <span class="text-gold text-2xl">★★★★★</span>
+          </div>
+          <p class="text-gray-light italic mb-6 leading-relaxed">
+            "Somos autónomos y necesitábamos un coche con IVA deducible. Gevora Cars nos consiguió la mejor unidad, con factura completa y garantía. Un servicio serio, rápido y muy profesional."
+          </p>
+          <div class="border-t border-gray-800 pt-4">
+            <p class="font-semibold text-pearl">J&J Projects</p>
+            <p class="text-sm text-gold">Cupra Formentor - Valencia</p>
+          </div>
+        </div>
+
+        <!-- Testimonio 6 -->
+        <div class="bg-dark-card p-8 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300">
+          <div class="flex items-center gap-1 mb-4">
+            <span class="text-gold text-2xl">★★★★★</span>
+          </div>
+          <p class="text-gray-light italic mb-6 leading-relaxed">
+            "Quería un M4 muy concreto y no encontraba ninguno bueno en España. Gevora Cars me lo encontró fuera, lo revisó todo y me lo trajo llave en mano. La comunicación fue perfecta durante todo el proceso."
+          </p>
+          <div class="border-t border-gray-800 pt-4">
+            <p class="font-semibold text-pearl">Rubén G.</p>
+            <p class="text-sm text-gold">BMW M4 - Valencia</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ SECTION -->
+  <section id="faq" class="py-24 bg-dark-base">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16">
+        <h2 class="text-4xl md:text-5xl font-bold text-pearl mb-4">
+          Preguntas <span class="text-gold">Frecuentes</span>
+        </h2>
+        <p class="text-xl text-gray-light">Resolvemos tus dudas</p>
+      </div>
+
+      <div class="space-y-4">
+        <!-- FAQ 1 -->
+        <div class="faq-item bg-dark-alt rounded-xl overflow-hidden border border-gray-800">
+          <button class="faq-question w-full px-8 py-6 text-left flex justify-between items-center hover:bg-dark-card transition-colors duration-300">
+            <span class="font-semibold text-pearl text-lg">¿Realmente es gratis vender mi coche?</span>
+            <svg class="w-6 h-6 text-gold transform transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+          <div class="faq-answer hidden px-8 pb-6">
+            <p class="text-gray-light leading-relaxed">
+              Sí, 100% gratis. Solo cobramos una comisión previamente acordada cuando tu coche se venda. Si no se vende, no pagas nada. Sin costes ocultos ni sorpresas.
+            </p>
+          </div>
+        </div>
+
+        <!-- FAQ 2 -->
+        <div class="faq-item bg-dark-alt rounded-xl overflow-hidden border border-gray-800">
+          <button class="faq-question w-full px-8 py-6 text-left flex justify-between items-center hover:bg-dark-card transition-colors duration-300">
+            <span class="font-semibold text-pearl text-lg">¿Cuánto tarda una importación desde Alemania?</span>
+            <svg class="w-6 h-6 text-gold transform transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+          <div class="faq-answer hidden px-8 pb-6">
+            <p class="text-gray-light leading-relaxed">
+              El proceso completo suele tardar entre 2-4 semanas desde que encuentras el coche hasta que lo recibes matriculado y listo para circular. Te mantenemos informado en cada paso.
+            </p>
+          </div>
+        </div>
+
+        <!-- FAQ 3 -->
+        <div class="faq-item bg-dark-alt rounded-xl overflow-hidden border border-gray-800">
+          <button class="faq-question w-full px-8 py-6 text-left flex justify-between items-center hover:bg-dark-card transition-colors duration-300">
+            <span class="font-semibold text-pearl text-lg">¿Qué garantías tengo al comprar un coche?</span>
+            <svg class="w-6 h-6 text-gold transform transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+          <div class="faq-answer hidden px-8 pb-6">
+            <p class="text-gray-light leading-relaxed">
+              Ofrecemos garantía premium de mínimo 1 año que cubre más de 500 piezas, incluyendo filtro de partículas y EGR. Además, todos los coches pasan una inspección técnica exhaustiva antes de la compra.
+            </p>
+          </div>
+        </div>
+
+        <!-- FAQ 4 -->
+        <div class="faq-item bg-dark-alt rounded-xl overflow-hidden border border-gray-800">
+          <button class="faq-question w-full px-8 py-6 text-left flex justify-between items-center hover:bg-dark-card transition-colors duration-300">
+            <span class="font-semibold text-pearl text-lg">¿Puedo seguir usando mi coche mientras lo vendéis?</span>
+            <svg class="w-6 h-6 text-gold transform transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+          <div class="faq-answer hidden px-8 pb-6">
+            <p class="text-gray-light leading-relaxed">
+              ¡Por supuesto! Puedes seguir utilizando tu coche con total normalidad mientras gestionamos la venta. Solo necesitamos que esté disponible para las visitas que programemos.
+            </p>
+          </div>
+        </div>
+
+        <!-- FAQ 5 -->
+        <div class="faq-item bg-dark-alt rounded-xl overflow-hidden border border-gray-800">
+          <button class="faq-question w-full px-8 py-6 text-left flex justify-between items-center hover:bg-dark-card transition-colors duration-300">
+            <span class="font-semibold text-pearl text-lg">¿Ofrecéis financiación?</span>
+            <svg class="w-6 h-6 text-gold transform transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+          <div class="faq-answer hidden px-8 pb-6">
+            <p class="text-gray-light leading-relaxed">
+              Sí, trabajamos con las principales entidades financieras del sector (Lendrock, Cofidis, Cetelem, CA Bank). Te ayudamos a conseguir la mejor financiación adaptada a tu situación.
+            </p>
+          </div>
+        </div>
+
+        <!-- FAQ 6 -->
+        <div class="faq-item bg-dark-alt rounded-xl overflow-hidden border border-gray-800">
+          <button class="faq-question w-full px-8 py-6 text-left flex justify-between items-center hover:bg-dark-card transition-colors duration-300">
+            <span class="font-semibold text-pearl text-lg">¿Cuánto me ahorro importando de Alemania?</span>
+            <svg class="w-6 h-6 text-gold transform transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+          <div class="faq-answer hidden px-8 pb-6">
+            <p class="text-gray-light leading-relaxed">
+              Dependiendo del modelo, puedes ahorrar entre un 15% y 30% respecto al precio en España. Además, los coches alemanes suelen tener mejor equipamiento y mantenimiento verificable.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACTO / CTA SECTION -->
+  <section id="contacto" class="py-24 bg-dark-alt relative overflow-hidden">
+    <!-- Decorative gradients -->
+    <div class="absolute top-0 left-0 w-96 h-96 bg-gold opacity-10 rounded-full blur-3xl"></div>
+    <div class="absolute bottom-0 right-0 w-96 h-96 bg-gold opacity-10 rounded-full blur-3xl"></div>
+
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div class="text-center mb-16">
+        <h2 class="text-4xl md:text-5xl font-bold text-pearl mb-4">
+          ¿Listo para <span class="text-gold">empezar</span>?
+        </h2>
+        <p class="text-xl text-gray-light">Contacta con nosotros y te ayudaremos en todo el proceso</p>
+      </div>
+
+      <div class="bg-dark-card rounded-2xl p-8 md:p-12 border border-gold/20">
+        <form id="contactForm" class="space-y-6">
+          <!-- Selector: Vender o Comprar -->
+          <div>
+            <label class="block text-pearl font-semibold mb-3">¿Qué quieres hacer?</label>
+            <div class="grid grid-cols-2 gap-4">
+              <label class="relative">
+                <input type="radio" name="action" value="vender" class="peer sr-only" checked>
+                <div class="cursor-pointer bg-dark-alt border-2 border-gray-800 rounded-lg p-4 text-center peer-checked:border-gold peer-checked:bg-gold/10 transition-all duration-300">
+                  <span class="text-2xl mb-2 block">💰</span>
+                  <span class="font-semibold text-pearl">Vender mi coche</span>
+                </div>
+              </label>
+              <label class="relative">
+                <input type="radio" name="action" value="comprar" class="peer sr-only">
+                <div class="cursor-pointer bg-dark-alt border-2 border-gray-800 rounded-lg p-4 text-center peer-checked:border-gold peer-checked:bg-gold/10 transition-all duration-300">
+                  <span class="text-2xl mb-2 block">🚗</span>
+                  <span class="font-semibold text-pearl">Comprar un coche</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Nombre -->
+          <div>
+            <label for="nombre" class="block text-pearl font-semibold mb-2">Nombre completo</label>
+            <input
+              type="text"
+              id="nombre"
+              name="nombre"
+              required
+              class="w-full px-4 py-3 bg-dark-alt border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300"
+              placeholder="Juan Pérez"
+            >
+          </div>
+
+          <!-- Email y Teléfono -->
+          <div class="grid md:grid-cols-2 gap-6">
+            <div>
+              <label for="email" class="block text-pearl font-semibold mb-2">Email</label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                required
+                class="w-full px-4 py-3 bg-dark-alt border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300"
+                placeholder="ejemplo@email.com"
+              >
+            </div>
+            <div>
+              <label for="telefono" class="block text-pearl font-semibold mb-2">Teléfono / WhatsApp</label>
+              <input
+                type="tel"
+                id="telefono"
+                name="telefono"
+                required
+                class="w-full px-4 py-3 bg-dark-alt border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300"
+                placeholder="600 123 456"
+              >
+            </div>
+          </div>
+
+          <!-- Marca y Modelo -->
+          <div class="grid md:grid-cols-2 gap-6">
+            <div>
+              <label for="marca" class="block text-pearl font-semibold mb-2">Marca</label>
+              <input
+                type="text"
+                id="marca"
+                name="marca"
+                class="w-full px-4 py-3 bg-dark-alt border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300"
+                placeholder="Ej: BMW, Audi, Mercedes..."
+              >
+            </div>
+            <div>
+              <label for="modelo" class="block text-pearl font-semibold mb-2">Modelo</label>
+              <input
+                type="text"
+                id="modelo"
+                name="modelo"
+                class="w-full px-4 py-3 bg-dark-alt border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300"
+                placeholder="Ej: A3, Serie 3, Clase C..."
+              >
+            </div>
+          </div>
+
+          <!-- Mensaje -->
+          <div>
+            <label for="mensaje" class="block text-pearl font-semibold mb-2">Cuéntanos más detalles</label>
+            <textarea
+              id="mensaje"
+              name="mensaje"
+              rows="4"
+              class="w-full px-4 py-3 bg-dark-alt border border-gray-800 rounded-lg text-pearl placeholder-gray-500 focus:outline-none focus:border-gold transition-colors duration-300 resize-none"
+              placeholder="Ej: Busco un BMW Serie 3 del 2020, presupuesto 25.000€..."
+            ></textarea>
+          </div>
+
+          <!-- GDPR -->
+          <div class="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="gdpr"
+              name="gdpr"
+              required
+              class="mt-1 w-5 h-5 rounded border-gray-800 text-gold focus:ring-gold"
+            >
+            <label for="gdpr" class="text-sm text-gray-light">
+              Acepto la política de privacidad y el tratamiento de mis datos para recibir información sobre los servicios de Gevora Cars.
+            </label>
+          </div>
+
+          <!-- Submit Button -->
+          <button
+            type="submit"
+            class="w-full py-4 bg-gold text-dark-base font-bold text-lg rounded-lg hover:bg-gold-light transition-all duration-300 hover-lift"
+          >
+            Enviar solicitud
+          </button>
+        </form>
+
+        <!-- Contact Info -->
+        <div class="mt-12 pt-12 border-t border-gray-800">
+          <div class="grid md:grid-cols-3 gap-6 text-center">
+            <div>
+              <div class="text-5xl mb-2 text-gold"><i class="las la-phone"></i></div>
+              <p class="text-sm text-gray-light mb-1">Llámanos</p>
+              <a href="tel:+34601158282" class="text-gold hover:text-gold-light transition-colors duration-300 font-semibold">
+                601 15 82 82
+              </a>
+            </div>
+            <div>
+              <div class="text-5xl mb-2 text-gold"><i class="las la-envelope"></i></div>
+              <p class="text-sm text-gray-light mb-1">Email</p>
+              <a href="mailto:gevoracarsvalencia@gmail.com" class="text-gold hover:text-gold-light transition-colors duration-300 font-semibold break-all">
+                gevoracarsvalencia@gmail.com
+              </a>
+            </div>
+            <div>
+              <div class="text-5xl mb-2 text-gold"><i class="lab la-whatsapp"></i></div>
+              <p class="text-sm text-gray-light mb-1">WhatsApp</p>
+              <a href="https://wa.me/34601675888" class="text-gold hover:text-gold-light transition-colors duration-300 font-semibold">
+                601 675 888
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="bg-dark-base border-t border-gray-800 py-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid md:grid-cols-4 gap-8 mb-8">
+        <!-- Brand -->
+        <div class="md:col-span-2">
+          <h3 class="text-3xl font-bold mb-4">
+            <span class="text-pearl">GEVORA</span>
+            <span class="text-gold">CARS</span>
+          </h3>
+          <p class="text-gray-light mb-4 leading-relaxed">
+            El servicio más cómodo, seguro y rentable para vender o comprar tu coche. Venta GRATIS, importación desde Alemania, garantía premium.
+          </p>
+          <p class="text-sm text-gray-medium">GEVORACARS SL</p>
+          <p class="text-sm text-gray-medium">Alginet, Valencia</p>
+        </div>
+
+        <!-- Enlaces rápidos -->
+        <div>
+          <h4 class="font-semibold text-pearl mb-4">Enlaces</h4>
+          <ul class="space-y-2">
+            <li><a href="#como-funciona" class="text-gray-light hover:text-gold transition-colors duration-300">Cómo funciona</a></li>
+            <li><a href="#servicios" class="text-gray-light hover:text-gold transition-colors duration-300">Servicios</a></li>
+            <li><a href="#testimonios" class="text-gray-light hover:text-gold transition-colors duration-300">Testimonios</a></li>
+            <li><a href="#faq" class="text-gray-light hover:text-gold transition-colors duration-300">FAQ</a></li>
+            <li><a href="#contacto" class="text-gray-light hover:text-gold transition-colors duration-300">Contacto</a></li>
+          </ul>
+        </div>
+
+        <!-- Contacto -->
+        <div>
+          <h4 class="font-semibold text-pearl mb-4">Contacto</h4>
+          <ul class="space-y-2 text-gray-light">
+            <li>
+              <a href="tel:+34633010904" class="hover:text-gold transition-colors duration-300">
+                Nathan: 633 01 09 04
+              </a>
+            </li>
+            <li>
+              <a href="tel:+34651476958" class="hover:text-gold transition-colors duration-300">
+                Álvaro: 651 476 958
+              </a>
+            </li>
+            <li>
+              <a href="tel:+34601158282" class="hover:text-gold transition-colors duration-300">
+                Fran: 601 15 82 82
+              </a>
+            </li>
+            <li>
+              <a href="https://wa.me/34601675888" class="hover:text-gold transition-colors duration-300">
+                WhatsApp: 601 675 888
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Bottom bar -->
+      <div class="pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4">
+        <p class="text-sm text-gray-medium">
+          © 2024 Gevora Cars SL. Todos los derechos reservados.
+        </p>
+        <div class="flex gap-6 text-sm text-gray-medium">
+          <a href="#" class="hover:text-gold transition-colors duration-300">Aviso Legal</a>
+          <a href="#" class="hover:text-gold transition-colors duration-300">Política de Privacidad</a>
+          <a href="#" class="hover:text-gold transition-colors duration-300">Cookies</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- JavaScript for interactions -->
+  <script>
+    // Tab functionality
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const targetTab = button.dataset.tab;
+
+        // Update buttons
+        tabButtons.forEach(btn => btn.classList.remove('active', 'bg-gold', 'text-dark-base'));
+        button.classList.add('active', 'bg-gold', 'text-dark-base');
+
+        // Update content
+        tabContents.forEach(content => {
+          if (content.id === `tab-${targetTab}`) {
+            content.classList.remove('hidden');
+          } else {
+            content.classList.add('hidden');
+          }
+        });
+      });
+    });
+
+    // Initialize first tab as active
+    tabButtons[0].classList.add('bg-gold', 'text-dark-base');
+
+    // Autocomplete functionality for car search
+    (function() {
+    const carsDatabase = {
+      "marcas": {
+        "Audi": ["A1", "A3", "A4", "A5", "A6", "A7", "A8", "Q2", "Q3", "Q5", "Q7", "Q8", "TT", "R8", "RS3", "RS4", "RS5", "RS6", "RS7", "e-tron"],
+        "BMW": ["Serie 1", "Serie 2", "Serie 3", "Serie 4", "Serie 5", "Serie 6", "Serie 7", "Serie 8", "X1", "X2", "X3", "X4", "X5", "X6", "X7", "Z4", "i3", "i4", "iX", "M2", "M3", "M4", "M5", "M8"],
+        "Mercedes-Benz": ["Clase A", "Clase B", "Clase C", "Clase E", "Clase S", "CLA", "CLS", "GLA", "GLB", "GLC", "GLE", "GLS", "EQA", "EQB", "EQC", "EQE", "EQS", "AMG GT", "Clase G"],
+        "Volkswagen": ["Polo", "Golf", "Golf GTI", "Golf R", "Tiguan", "Touareg", "T-Roc", "T-Cross", "Passat", "Arteon", "ID.3", "ID.4", "ID.5", "Taigo"],
+        "Seat": ["Ibiza", "Leon", "Arona", "Ateca", "Tarraco", "Leon Cupra"],
+        "Cupra": ["Formentor", "Leon", "Ateca", "Born", "Tavascan"],
+        "Renault": ["Clio", "Megane", "Captur", "Kadjar", "Arkana", "Austral", "Scenic", "Zoe", "Megane E-Tech"],
+        "Peugeot": ["208", "308", "508", "2008", "3008", "5008", "e-208", "e-2008"],
+        "Citroën": ["C3", "C4", "C5 Aircross", "Berlingo", "e-C4"],
+        "Opel": ["Corsa", "Astra", "Insignia", "Crossland", "Grandland", "Mokka", "Corsa-e"],
+        "Ford": ["Fiesta", "Focus", "Mondeo", "Kuga", "Puma", "Mustang", "Mustang Mach-E", "Ranger"],
+        "Toyota": ["Yaris", "Corolla", "Camry", "C-HR", "RAV4", "Highlander", "Land Cruiser", "Prius", "bZ4X"],
+        "Honda": ["Civic", "Accord", "CR-V", "HR-V", "Jazz", "e"],
+        "Mazda": ["Mazda2", "Mazda3", "Mazda6", "CX-3", "CX-30", "CX-5", "CX-60", "MX-5", "MX-30"],
+        "Nissan": ["Micra", "Juke", "Qashqai", "X-Trail", "Leaf", "Ariya", "GT-R"],
+        "Hyundai": ["i10", "i20", "i30", "Tucson", "Santa Fe", "Kona", "Ioniq 5", "Ioniq 6"],
+        "Kia": ["Picanto", "Rio", "Ceed", "Sportage", "Sorento", "Niro", "EV6", "Stinger"],
+        "Volvo": ["XC40", "XC60", "XC90", "S60", "S90", "V60", "V90", "C40 Recharge"],
+        "Porsche": ["911", "718 Boxster", "718 Cayman", "Taycan", "Panamera", "Macan", "Cayenne"],
+        "Tesla": ["Model 3", "Model Y", "Model S", "Model X"],
+        "Ferrari": ["Roma", "Portofino", "F8 Tributo", "SF90 Stradale", "296 GTB", "812 Superfast", "Purosangue"],
+        "Lamborghini": ["Huracán", "Urus", "Aventador", "Revuelto"],
+        "Jaguar": ["XE", "XF", "XJ", "F-Type", "E-Pace", "F-Pace", "I-Pace"],
+        "Land Rover": ["Defender", "Discovery", "Discovery Sport", "Range Rover", "Range Rover Sport", "Range Rover Evoque", "Range Rover Velar"],
+        "Mini": ["Cooper", "Countryman", "Clubman", "Cooper SE"],
+        "Fiat": ["500", "500X", "Panda", "Tipo", "500e"],
+        "Alfa Romeo": ["Giulia", "Stelvio", "Tonale"],
+        "Jeep": ["Renegade", "Compass", "Cherokee", "Grand Cherokee", "Wrangler", "Gladiator"],
+        "Dacia": ["Sandero", "Duster", "Jogger", "Spring"],
+        "Skoda": ["Fabia", "Octavia", "Superb", "Kamiq", "Karoq", "Kodiaq", "Enyaq"]
+      }
+    };
+
+    const marcaInput = document.getElementById('search-marca');
+    const modeloInput = document.getElementById('search-modelo');
+    const marcaSuggestions = document.getElementById('marca-suggestions');
+    const modeloSuggestions = document.getElementById('modelo-suggestions');
+
+    // Verificar que los elementos existen
+    if (!marcaInput || !modeloInput || !marcaSuggestions || !modeloSuggestions) {
+      console.error('Elementos del autocomplete no encontrados');
+      return;
+    }
+
+    let selectedMarca = '';
+    let currentMarcaIndex = -1;
+    let currentModeloIndex = -1;
+    let marcaMatches = [];
+    let modeloMatches = [];
+
+    // Función para resaltar coincidencias
+    function highlightMatch(text, query) {
+      if (!query) return text;
+      const regex = new RegExp(`(${query})`, 'gi');
+      return text.replace(regex, '<span class="text-gold font-semibold">$1</span>');
+    }
+
+    // Función para ordenar resultados por relevancia
+    function sortByRelevance(items, query) {
+      return items.sort((a, b) => {
+        const aLower = a.toLowerCase();
+        const bLower = b.toLowerCase();
+        const queryLower = query.toLowerCase();
+
+        // Coincidencia exacta primero
+        if (aLower === queryLower) return -1;
+        if (bLower === queryLower) return 1;
+
+        // Comienza con la búsqueda
+        const aStarts = aLower.startsWith(queryLower);
+        const bStarts = bLower.startsWith(queryLower);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+
+        // Alfabético
+        return a.localeCompare(b);
+      });
+    }
+
+    // Función para renderizar sugerencias
+    function renderSuggestions(container, items, query, currentIndex, onSelect) {
+      container.innerHTML = '';
+
+      if (items.length === 0) {
+        const noResults = document.createElement('div');
+        noResults.className = 'px-4 py-3 text-gray-light text-center';
+        noResults.innerHTML = '<i class="las la-exclamation-circle"></i> No se encontraron resultados';
+        container.appendChild(noResults);
+        container.classList.remove('hidden');
+        return;
+      }
+
+      // Header con contador
+      const header = document.createElement('div');
+      header.className = 'px-4 py-2 bg-dark-base border-b border-gray-800 text-gray-light text-xs font-semibold';
+      header.innerHTML = `<i class="las la-list"></i> ${items.length} resultado${items.length !== 1 ? 's' : ''}`;
+      container.appendChild(header);
+
+      items.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.innerHTML = highlightMatch(item, query);
+        div.className = `px-4 py-3 cursor-pointer border-b border-gray-800 last:border-0 transition-all duration-200 ${
+          index === currentIndex
+            ? 'bg-gold text-dark-base font-semibold'
+            : 'text-pearl hover:bg-dark-alt'
+        }`;
+        div.dataset.index = index;
+
+        div.addEventListener('mousedown', (e) => {
+          e.preventDefault(); // Prevenir que el input pierda el foco
+          onSelect(item);
+        });
+        div.addEventListener('mouseenter', () => {
+          // Actualizar índice al pasar el mouse
+          if (container === marcaSuggestions) {
+            currentMarcaIndex = index;
+          } else {
+            currentModeloIndex = index;
+          }
+          renderSuggestions(container, items, query, index, onSelect);
+        });
+
+        container.appendChild(div);
+      });
+
+      container.classList.remove('hidden');
+    }
+
+    // Función para seleccionar marca
+    function selectMarca(marca) {
+      marcaInput.value = marca;
+      selectedMarca = marca;
+      marcaSuggestions.classList.add('hidden');
+      currentMarcaIndex = -1;
+
+      // Limpiar y habilitar campo de modelo
+      modeloInput.value = '';
+      modeloInput.disabled = false;
+      modeloInput.placeholder = 'Busca o haz click para ver todos...';
+      modeloInput.focus();
+    }
+
+    // Función para seleccionar modelo
+    function selectModelo(modelo) {
+      modeloInput.value = modelo;
+      modeloSuggestions.classList.add('hidden');
+      currentModeloIndex = -1;
+    }
+
+    // Autocomplete para Marca
+    marcaInput.addEventListener('input', (e) => {
+      const value = e.target.value;
+      currentMarcaIndex = -1;
+
+      if (value.length < 1) {
+        marcaSuggestions.classList.add('hidden');
+        selectedMarca = '';
+        modeloInput.value = '';
+        modeloInput.disabled = true;
+        modeloInput.placeholder = 'Primero selecciona una marca...';
+        return;
+      }
+
+      marcaMatches = Object.keys(carsDatabase.marcas).filter(marca =>
+        marca.toLowerCase().includes(value.toLowerCase())
+      );
+
+      marcaMatches = sortByRelevance(marcaMatches, value);
+      renderSuggestions(marcaSuggestions, marcaMatches, value, currentMarcaIndex, selectMarca);
+    });
+
+    // Navegación con teclado para Marca
+    marcaInput.addEventListener('keydown', (e) => {
+      if (marcaMatches.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        currentMarcaIndex = Math.min(currentMarcaIndex + 1, marcaMatches.length - 1);
+        renderSuggestions(marcaSuggestions, marcaMatches, marcaInput.value, currentMarcaIndex, selectMarca);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        currentMarcaIndex = Math.max(currentMarcaIndex - 1, -1);
+        renderSuggestions(marcaSuggestions, marcaMatches, marcaInput.value, currentMarcaIndex, selectMarca);
+      } else if (e.key === 'Enter' && currentMarcaIndex >= 0) {
+        e.preventDefault();
+        selectMarca(marcaMatches[currentMarcaIndex]);
+      } else if (e.key === 'Escape') {
+        marcaSuggestions.classList.add('hidden');
+        currentMarcaIndex = -1;
+      }
+    });
+
+    // Autocomplete para Modelo
+    modeloInput.addEventListener('input', (e) => {
+      const value = e.target.value;
+      currentModeloIndex = -1;
+
+      if (!selectedMarca) {
+        modeloSuggestions.classList.add('hidden');
+        return;
+      }
+
+      const modelos = carsDatabase.marcas[selectedMarca] || [];
+
+      if (value.length < 1) {
+        // Mostrar todos los modelos disponibles
+        modeloMatches = modelos;
+      } else {
+        modeloMatches = modelos.filter(modelo =>
+          modelo.toLowerCase().includes(value.toLowerCase())
+        );
+        modeloMatches = sortByRelevance(modeloMatches, value);
+      }
+
+      renderSuggestions(modeloSuggestions, modeloMatches, value, currentModeloIndex, selectModelo);
+    });
+
+    // Click en campo modelo muestra todos los modelos
+    modeloInput.addEventListener('focus', (e) => {
+      if (selectedMarca && modeloInput.value.length === 0) {
+        modeloMatches = carsDatabase.marcas[selectedMarca] || [];
+        renderSuggestions(modeloSuggestions, modeloMatches, '', currentModeloIndex, selectModelo);
+      }
+    });
+
+    // Navegación con teclado para Modelo
+    modeloInput.addEventListener('keydown', (e) => {
+      if (modeloMatches.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        currentModeloIndex = Math.min(currentModeloIndex + 1, modeloMatches.length - 1);
+        renderSuggestions(modeloSuggestions, modeloMatches, modeloInput.value, currentModeloIndex, selectModelo);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        currentModeloIndex = Math.max(currentModeloIndex - 1, -1);
+        renderSuggestions(modeloSuggestions, modeloMatches, modeloInput.value, currentModeloIndex, selectModelo);
+      } else if (e.key === 'Enter' && currentModeloIndex >= 0) {
+        e.preventDefault();
+        selectModelo(modeloMatches[currentModeloIndex]);
+      } else if (e.key === 'Escape') {
+        modeloSuggestions.classList.add('hidden');
+        currentModeloIndex = -1;
+      }
+    });
+
+    // Cerrar sugerencias al hacer click fuera
+    document.addEventListener('click', (e) => {
+      if (!marcaInput.contains(e.target) && !marcaSuggestions.contains(e.target)) {
+        marcaSuggestions.classList.add('hidden');
+        currentMarcaIndex = -1;
+      }
+      if (!modeloInput.contains(e.target) && !modeloSuggestions.contains(e.target)) {
+        modeloSuggestions.classList.add('hidden');
+        currentModeloIndex = -1;
+      }
+    });
+    })(); // Cierre de IIFE autocomplete
+
+    // FAQ accordion
+    const faqItems = document.querySelectorAll('.faq-item');
+
+    faqItems.forEach(item => {
+      const question = item.querySelector('.faq-question');
+      const answer = item.querySelector('.faq-answer');
+      const icon = question.querySelector('svg');
+
+      question.addEventListener('click', () => {
+        const isOpen = !answer.classList.contains('hidden');
+
+        // Close all FAQs
+        faqItems.forEach(otherItem => {
+          otherItem.querySelector('.faq-answer').classList.add('hidden');
+          otherItem.querySelector('svg').classList.remove('rotate-180');
+        });
+
+        // Toggle current FAQ
+        if (!isOpen) {
+          answer.classList.remove('hidden');
+          icon.classList.add('rotate-180');
+        }
+      });
+    });
+
+    // Form submission
+    const form = document.getElementById('contactForm');
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      // Get form data
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData);
+
+      // Here you would normally send to a backend
+      console.log('Form data:', data);
+
+      // Show success message (you can customize this)
+      alert('¡Gracias por tu solicitud! Te contactaremos pronto por WhatsApp o email.');
+      form.reset();
+    });
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      });
+    });
+  </script>
+</body>
+</html>

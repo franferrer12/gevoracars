@@ -1,0 +1,282 @@
+---
+import '../../styles/global.css';
+import db from '../../lib/db.js';
+
+// Verificar sesión
+const sessionCookie = Astro.cookies.get('session');
+if (!sessionCookie) {
+  return Astro.redirect('/admin/login');
+}
+
+let session;
+try {
+  session = JSON.parse(sessionCookie.value);
+} catch (e) {
+  return Astro.redirect('/admin/login');
+}
+
+// Obtener estadísticas
+const stats = {
+  totalCars: db.prepare('SELECT COUNT(*) as count FROM cars').get().count,
+  disponibles: db.prepare("SELECT COUNT(*) as count FROM cars WHERE estado = 'disponible'").get().count,
+  vendidos: db.prepare("SELECT COUNT(*) as count FROM cars WHERE estado = 'vendido'").get().count,
+  totalLeads: db.prepare('SELECT COUNT(*) as count FROM leads').get().count,
+  leadsNuevos: db.prepare("SELECT COUNT(*) as count FROM leads WHERE estado = 'nuevo'").get().count
+};
+
+// Obtener últimos coches
+const recentCars = db.prepare(`
+  SELECT * FROM cars
+  ORDER BY created_at DESC
+  LIMIT 10
+`).all();
+
+// Obtener últimos leads
+const recentLeads = db.prepare(`
+  SELECT * FROM leads
+  ORDER BY created_at DESC
+  LIMIT 5
+`).all();
+
+// Manejar logout
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  if (formData.get('action') === 'logout') {
+    Astro.cookies.delete('session', { path: '/' });
+    return Astro.redirect('/admin/login');
+  }
+}
+---
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - Gevora Cars Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+
+<body class="bg-dark-base min-h-screen">
+  <!-- Header -->
+  <header class="bg-dark-alt border-b border-gray-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="flex justify-between items-center">
+        <div>
+          <h1 class="text-2xl font-black tracking-tighter">
+            <span class="text-pearl">GEVORA</span>
+            <span class="text-gold">CARS</span>
+            <span class="text-sm font-normal text-gray-light ml-3">Admin</span>
+          </h1>
+        </div>
+
+        <div class="flex items-center gap-4">
+          <span class="text-gray-light">
+            Hola, <strong class="text-pearl">{session.username}</strong>
+          </span>
+          <form method="POST" class="inline">
+            <input type="hidden" name="action" value="logout" />
+            <button type="submit" class="px-4 py-2 bg-dark-card text-gray-light hover:text-pearl border border-gray-800 hover:border-gold rounded-lg transition-all duration-300">
+              Cerrar sesión
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+      <!-- Total Coches -->
+      <div class="bg-dark-alt p-6 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300">
+        <div class="text-4xl mb-2">🚗</div>
+        <div class="text-3xl font-bold text-gold">{stats.totalCars}</div>
+        <div class="text-sm text-gray-light">Total Coches</div>
+      </div>
+
+      <!-- Disponibles -->
+      <div class="bg-dark-alt p-6 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300">
+        <div class="text-4xl mb-2">✅</div>
+        <div class="text-3xl font-bold text-green-500">{stats.disponibles}</div>
+        <div class="text-sm text-gray-light">Disponibles</div>
+      </div>
+
+      <!-- Vendidos -->
+      <div class="bg-dark-alt p-6 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300">
+        <div class="text-4xl mb-2">💰</div>
+        <div class="text-3xl font-bold text-pearl">{stats.vendidos}</div>
+        <div class="text-sm text-gray-light">Vendidos</div>
+      </div>
+
+      <!-- Total Leads -->
+      <div class="bg-dark-alt p-6 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300">
+        <div class="text-4xl mb-2">📧</div>
+        <div class="text-3xl font-bold text-blue-500">{stats.totalLeads}</div>
+        <div class="text-sm text-gray-light">Total Leads</div>
+      </div>
+
+      <!-- Leads Nuevos -->
+      <div class="bg-dark-alt p-6 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300">
+        <div class="text-4xl mb-2">🔔</div>
+        <div class="text-3xl font-bold text-orange-500">{stats.leadsNuevos}</div>
+        <div class="text-sm text-gray-light">Leads Nuevos</div>
+      </div>
+    </div>
+
+    <!-- Navigation Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      <!-- Gestionar Coches -->
+      <a href="/admin/cars" class="block bg-dark-alt p-8 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300 hover-lift">
+        <div class="text-5xl mb-4">🚗</div>
+        <h2 class="text-2xl font-bold text-pearl mb-2">Gestionar Coches</h2>
+        <p class="text-gray-light">Ver, agregar, editar y eliminar coches del inventario</p>
+      </a>
+
+      <!-- Ver Leads -->
+      <a href="/admin/leads" class="block bg-dark-alt p-8 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300 hover-lift">
+        <div class="text-5xl mb-4">📧</div>
+        <h2 class="text-2xl font-bold text-pearl mb-2">Ver Leads</h2>
+        <p class="text-gray-light">Gestionar contactos y solicitudes de clientes</p>
+      </a>
+
+      <!-- Volver al sitio -->
+      <a href="/" class="block bg-dark-alt p-8 rounded-xl border border-gray-800 hover:border-gold transition-all duration-300 hover-lift">
+        <div class="text-5xl mb-4">🌐</div>
+        <h2 class="text-2xl font-bold text-pearl mb-2">Ver Sitio Web</h2>
+        <p class="text-gray-light">Ir a la página principal del sitio</p>
+      </a>
+    </div>
+
+    <!-- Recent Cars -->
+    <div class="mb-8">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-pearl">Últimos Coches Agregados</h2>
+        <a href="/admin/cars/new" class="px-6 py-3 bg-gold text-dark-base font-bold rounded-lg hover:bg-gold-light transition-all duration-300">
+          + Agregar Coche
+        </a>
+      </div>
+
+      <div class="bg-dark-alt rounded-xl border border-gray-800 overflow-hidden">
+        <table class="w-full">
+          <thead class="bg-dark-card border-b border-gray-800">
+            <tr>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Marca/Modelo</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Año</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Precio</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Estado</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Origen</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {recentCars.length === 0 ? (
+              <tr>
+                <td colspan="6" class="px-6 py-8 text-center text-gray-light">
+                  No hay coches registrados. <a href="/admin/cars/new" class="text-gold hover:underline">Agrega el primero</a>
+                </td>
+              </tr>
+            ) : (
+              recentCars.map(car => (
+                <tr class="border-b border-gray-800 hover:bg-dark-card transition-colors duration-200">
+                  <td class="px-6 py-4">
+                    <div class="font-semibold text-pearl">{car.marca} {car.modelo}</div>
+                  </td>
+                  <td class="px-6 py-4 text-gray-light">{car.year}</td>
+                  <td class="px-6 py-4 text-gold font-semibold">{car.precio.toLocaleString('es-ES')}€</td>
+                  <td class="px-6 py-4">
+                    <span class={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      car.estado === 'disponible' ? 'bg-green-900/30 text-green-400' :
+                      car.estado === 'vendido' ? 'bg-gray-700 text-gray-400' :
+                      'bg-yellow-900/30 text-yellow-400'
+                    }`}>
+                      {car.estado}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-gray-light capitalize">{car.origen}</td>
+                  <td class="px-6 py-4">
+                    <div class="flex gap-2">
+                      <a href={`/admin/cars/edit/${car.id}`} class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors duration-200">
+                        Editar
+                      </a>
+                      <a href={`/admin/cars/${car.id}`} class="px-3 py-1 bg-dark-card hover:bg-gray-700 text-gray-light text-sm rounded transition-colors duration-200">
+                        Ver
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Recent Leads -->
+    <div>
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-pearl">Últimos Leads</h2>
+        <a href="/admin/leads" class="text-gold hover:text-gold-light transition-colors duration-300">
+          Ver todos →
+        </a>
+      </div>
+
+      <div class="bg-dark-alt rounded-xl border border-gray-800 overflow-hidden">
+        <table class="w-full">
+          <thead class="bg-dark-card border-b border-gray-800">
+            <tr>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Nombre</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Tipo</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Vehículo</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Teléfono</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Estado</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-pearl">Fecha</th>
+            </tr>
+          </thead>
+          <tbody>
+            {recentLeads.length === 0 ? (
+              <tr>
+                <td colspan="6" class="px-6 py-8 text-center text-gray-light">
+                  No hay leads registrados todavía.
+                </td>
+              </tr>
+            ) : (
+              recentLeads.map(lead => (
+                <tr class="border-b border-gray-800 hover:bg-dark-card transition-colors duration-200">
+                  <td class="px-6 py-4 text-pearl font-semibold">{lead.nombre}</td>
+                  <td class="px-6 py-4">
+                    <span class={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      lead.tipo === 'vender' ? 'bg-orange-900/30 text-orange-400' : 'bg-blue-900/30 text-blue-400'
+                    }`}>
+                      {lead.tipo}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-gray-light">{lead.marca || '-'} {lead.modelo || ''}</td>
+                  <td class="px-6 py-4">
+                    <a href={`tel:${lead.telefono}`} class="text-gold hover:underline">{lead.telefono}</a>
+                  </td>
+                  <td class="px-6 py-4">
+                    <span class={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      lead.estado === 'nuevo' ? 'bg-green-900/30 text-green-400' :
+                      lead.estado === 'contactado' ? 'bg-blue-900/30 text-blue-400' :
+                      'bg-gray-700 text-gray-400'
+                    }`}>
+                      {lead.estado}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-gray-light text-sm">
+                    {new Date(lead.created_at).toLocaleDateString('es-ES')}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
